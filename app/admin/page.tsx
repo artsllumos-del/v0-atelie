@@ -1,149 +1,99 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ShoppingCart, DollarSign, Package, AlertTriangle, TrendingUp } from 'lucide-react'
-import { Skeleton } from '@/components/ui/skeleton'
+import { BarChart3, Package, ShoppingCart, Users, TrendingUp, AlertCircle } from 'lucide-react'
+
+const stats = [
+  {
+    title: 'Total de Vendas',
+    value: 'R$ 0,00',
+    description: 'Nenhuma venda registrada',
+    icon: TrendingUp,
+    color: 'text-green-500',
+  },
+  {
+    title: 'Pedidos Pendentes',
+    value: '0',
+    description: 'Aguardando confirmação',
+    icon: ShoppingCart,
+    color: 'text-blue-500',
+  },
+  {
+    title: 'Itens em Estoque',
+    value: '0',
+    description: 'Materiais cadastrados',
+    icon: Package,
+    color: 'text-orange-500',
+  },
+  {
+    title: 'Clientes Ativos',
+    value: '0',
+    description: 'No último mês',
+    icon: Users,
+    color: 'text-purple-500',
+  },
+]
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    totalOrders: 0,
-    totalRevenue: 0,
-    totalProducts: 0,
-    lowStockItems: 0,
-  })
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Buscar estatísticas
-        const [ordersRes, productsRes, materialsRes] = await Promise.all([
-          supabase.from('orders').select('id, total_value', { count: 'exact' }),
-          supabase.from('products').select('id', { count: 'exact' }),
-          supabase.from('materials').select('id, current_quantity, minimum_quantity'),
-        ])
-
-        const lowStock = materialsRes.data?.filter(
-          m => m.minimum_quantity && m.current_quantity < m.minimum_quantity
-        ).length || 0
-
-        const totalRevenue = ordersRes.data?.reduce((sum, order) => sum + (order.total_value || 0), 0) || 0
-
-        setStats({
-          totalOrders: ordersRes.count || 0,
-          totalRevenue,
-          totalProducts: productsRes.count || 0,
-          lowStockItems: lowStock,
-        })
-      } catch (error) {
-        console.error('Erro ao buscar estatísticas:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchStats()
-  }, [])
-
-  const KPICard = ({ title, value, icon, trend }: any) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className="rounded-lg bg-primary/10 p-2 text-primary">{icon}</div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-8 w-24" />
-        ) : (
-          <>
-            <div className="text-2xl font-bold">{value}</div>
-            {trend && <p className="text-xs text-muted-foreground mt-1">{trend}</p>}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  )
-
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">Bem-vindo ao painel de controle</p>
+        <p className="text-muted-foreground mt-2">Bem-vindo ao painel administrativo</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KPICard
-          title="Total de Pedidos"
-          value={stats.totalOrders}
-          icon={<ShoppingCart className="w-4 h-4" />}
-          trend={`${stats.totalOrders} pedidos registrados`}
-        />
-        <KPICard
-          title="Receita Total"
-          value={`R$ ${stats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          icon={<DollarSign className="w-4 h-4" />}
-          trend="Faturamento acumulado"
-        />
-        <KPICard
-          title="Produtos"
-          value={stats.totalProducts}
-          icon={<Package className="w-4 h-4" />}
-          trend={`${stats.totalProducts} produtos cadastrados`}
-        />
-        <KPICard
-          title="Estoque Baixo"
-          value={stats.lowStockItems}
-          icon={<AlertTriangle className="w-4 h-4" />}
-          trend={`${stats.lowStockItems} itens com alerta`}
-        />
+        {stats.map((stat) => (
+          <Card key={stat.title}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              <stat.icon className={`w-4 h-4 ${stat.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ações Rápidas</CardTitle>
-            <CardDescription>Acesse as funcionalidades principais</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <a href="/admin/estoque" className="block p-2 hover:bg-muted rounded-lg transition">
-              <p className="font-medium">Gerenciar Estoque</p>
-              <p className="text-sm text-muted-foreground">Controlar materiais e quantidade</p>
-            </a>
-            <a href="/admin/produtos" className="block p-2 hover:bg-muted rounded-lg transition">
-              <p className="font-medium">Produtos</p>
-              <p className="text-sm text-muted-foreground">Criar e editar produtos</p>
-            </a>
-            <a href="/admin/pedidos" className="block p-2 hover:bg-muted rounded-lg transition">
-              <p className="font-medium">Pedidos</p>
-              <p className="text-sm text-muted-foreground">Acompanhar produção</p>
-            </a>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Boas-vindas ao Ateliê Sagrado</CardTitle>
+          <CardDescription>
+            Sistema de gestão para produção artesanal de terços
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-3 rounded-lg bg-blue-500/10 border border-blue-500/20 p-4">
+            <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium text-blue-900 dark:text-blue-100">Sistema em desenvolvimento</p>
+              <p className="text-blue-800 dark:text-blue-200 text-xs mt-1">
+                Use o menu lateral para navegar entre os módulos disponíveis
+              </p>
+            </div>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações do Sistema</CardTitle>
-            <CardDescription>Status geral da aplicação</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Banco de Dados</span>
-              <Badge className="bg-green-500">Online</Badge>
+          <div className="grid gap-4 md:grid-cols-3 mt-6">
+            <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+              <Package className="w-6 h-6 mb-2 text-primary" />
+              <h3 className="font-semibold text-sm">Estoque</h3>
+              <p className="text-xs text-muted-foreground mt-1">Gerenciar materiais e quantidades</p>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">API</span>
-              <Badge className="bg-green-500">Funcional</Badge>
+            <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+              <ShoppingCart className="w-6 h-6 mb-2 text-primary" />
+              <h3 className="font-semibold text-sm">Pedidos</h3>
+              <p className="text-xs text-muted-foreground mt-1">Acompanhar vendas e encomendas</p>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Cache</span>
-              <Badge className="bg-green-500">Ativo</Badge>
+            <div className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer">
+              <Users className="w-6 h-6 mb-2 text-primary" />
+              <h3 className="font-semibold text-sm">Clientes</h3>
+              <p className="text-xs text-muted-foreground mt-1">Gerenciar base de clientes</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -19,7 +19,6 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login')
 
   useEffect(() => {
-    // Verificar se usuário já está logado
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         router.push('/')
@@ -33,13 +32,16 @@ export default function LoginPage() {
 
     try {
       const { error, data } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       })
 
-      if (error) throw error
+      if (error) {
+        toast.error('Email ou senha inválidos')
+        setIsLoading(false)
+        return
+      }
 
-      // Verificar role e redirecionar
       const { data: userData } = await supabase
         .from('users')
         .select('role')
@@ -52,10 +54,9 @@ export default function LoginPage() {
         router.push('/loja')
       }
 
-      toast.success('Login realizado com sucesso!')
+      toast.success('Bem-vindo!')
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao fazer login')
-    } finally {
+      toast.error('Erro ao fazer login')
       setIsLoading(false)
     }
   }
@@ -66,33 +67,37 @@ export default function LoginPage() {
 
     try {
       const { error, data } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
       })
 
-      if (error) throw error
+      if (error) {
+        toast.error(error.message)
+        setIsLoading(false)
+        return
+      }
 
-      // Criar registro de usuário
       if (data.user) {
         await supabase.from('users').insert({
           id: data.user.id,
-          email,
+          email: email.trim(),
           role: 'cliente',
           is_active: true,
         })
 
-        // Criar registro de cliente
         await supabase.from('customers').insert({
           user_id: data.user.id,
           full_name: email.split('@')[0],
-          email,
+          email: email.trim(),
         })
       }
 
-      toast.success('Cadastro realizado com sucesso! Verifique seu e-mail.')
+      toast.success('Cadastro realizado! Verifique seu e-mail.')
       setActiveTab('login')
+      setEmail('')
+      setPassword('')
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar conta')
+      toast.error('Erro ao criar conta')
     } finally {
       setIsLoading(false)
     }
@@ -100,36 +105,44 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-2 text-center">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="space-y-2 text-center border-b">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
-              <Lock className="w-6 h-6 text-primary-foreground" />
+            <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center shadow-lg">
+              <Lock className="w-7 h-7 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Ateliê Sagrado</CardTitle>
-          <CardDescription>
-            {activeTab === 'login' ? 'Entre na sua conta' : 'Crie uma nova conta'}
+          <CardTitle className="text-3xl font-serif">Ateliê Sagrado</CardTitle>
+          <CardDescription className="text-sm">
+            {activeTab === 'login' ? 'Acesse sua conta' : 'Crie uma nova conta'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-6">
+        <CardContent className="pt-6">
+          <div className="flex gap-2 mb-6 bg-muted p-1 rounded-lg">
             <button
-              onClick={() => setActiveTab('login')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              onClick={() => {
+                setActiveTab('login')
+                setEmail('')
+                setPassword('')
+              }}
+              className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${
                 activeTab === 'login'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-border'
+                  ? 'bg-background text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Login
             </button>
             <button
-              onClick={() => setActiveTab('signup')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              onClick={() => {
+                setActiveTab('signup')
+                setEmail('')
+                setPassword('')
+              }}
+              className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${
                 activeTab === 'signup'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-border'
+                  ? 'bg-background text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Cadastro
@@ -138,33 +151,34 @@ export default function LoginPage() {
 
           <form onSubmit={activeTab === 'login' ? handleLogin : handleSignup} className="space-y-4">
             <div className="relative">
-              <Mail className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
+              <Mail className="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground pointer-events-none" />
               <Input
                 type="email"
-                placeholder="E-mail"
+                placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
-                className="pl-10"
+                className="pl-10 bg-muted border-0 focus:ring-2 focus:ring-primary"
                 required
               />
             </div>
 
             <div className="relative">
-              <Lock className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
+              <Lock className="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground pointer-events-none" />
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Senha"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
-                className="pl-10 pr-10"
+                className="pl-10 pr-10 bg-muted border-0 focus:ring-2 focus:ring-primary"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-3.5 text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isLoading}
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -176,18 +190,27 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full"
+              disabled={isLoading || !email || !password}
+              className="w-full h-10 font-semibold"
             >
-              {isLoading ? 'Processando...' : activeTab === 'login' ? 'Entrar' : 'Cadastrar'}
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  Processando...
+                </div>
+              ) : activeTab === 'login' ? (
+                'Entrar'
+              ) : (
+                'Cadastrar'
+              )}
             </Button>
           </form>
 
-          {activeTab === 'login' && (
-            <p className="text-sm text-muted-foreground text-center mt-4">
-              Admin: artsllumos@gmail.com / 139908Lr
-            </p>
-          )}
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            {activeTab === 'login'
+              ? 'Sem conta? Clique em Cadastro para começar'
+              : 'Já tem conta? Clique em Login'}
+          </p>
         </CardContent>
       </Card>
     </div>
