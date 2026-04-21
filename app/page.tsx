@@ -2,10 +2,11 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 
 export default function HomePage() {
   const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
     supabase.auth.onAuthStateChange(async (event, session) => {
@@ -25,7 +26,7 @@ export default function HomePage() {
         router.push('/auth')
       }
     })
-  }, [router])
+  }, [router, supabase.auth])
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
