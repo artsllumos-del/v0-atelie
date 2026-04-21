@@ -1,453 +1,388 @@
 'use client'
 
-import { useState } from 'react'
-import {
-  Plus,
-  Search,
-  Filter,
-  Package,
-  AlertTriangle,
-  ArrowUpDown,
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  History,
-  Scale,
-} from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Plus, Search, Pencil, Trash2, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
-import { materiais } from '@/lib/mock-data'
-import type { CategoriaMaterial, Material } from '@/lib/types'
 
-const categorias: { value: CategoriaMaterial; label: string }[] = [
-  { value: 'contas', label: 'Contas' },
-  { value: 'crucifixos', label: 'Crucifixos' },
-  { value: 'entremeios', label: 'Entremeios' },
-  { value: 'fios', label: 'Fios' },
-  { value: 'acabamentos', label: 'Acabamentos' },
-  { value: 'embalagens', label: 'Embalagens' },
-  { value: 'outros', label: 'Outros' },
-]
-
-const unidadesCompra = [
-  { value: 'gramas', label: 'Gramas' },
-  { value: 'pacote', label: 'Pacote' },
-  { value: 'unidade', label: 'Unidade' },
-  { value: 'metros', label: 'Metros' },
-]
-
-function getStatusEstoque(material: Material) {
-  const percentual = (material.quantidadeDisponivel / material.estoqueMinimo) * 100
-
-  if (percentual < 100) {
-    return { status: 'critico', label: 'Crítico', color: 'bg-destructive text-destructive-foreground' }
-  }
-  if (percentual < 150) {
-    return { status: 'baixo', label: 'Baixo', color: 'bg-warning text-warning-foreground' }
-  }
-  return { status: 'ok', label: 'OK', color: 'bg-success text-success-foreground' }
+interface Material {
+  id: string
+  name: string
+  sku: string
+  unit_type: string
+  cost_per_unit: number
+  current_quantity: number
+  minimum_quantity: number
+  quantity_in_package: number
+  cost_per_package: number
 }
 
-function MaterialRow({ material }: { material: Material }) {
-  const statusEstoque = getStatusEstoque(material)
-  const percentualEstoque = Math.min((material.quantidadeDisponivel / material.estoqueMinimo) * 100, 100)
-
-  return (
-    <TableRow>
-      <TableCell>
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-            <Package className="size-5 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="font-medium">{material.nome}</p>
-            <p className="text-sm text-muted-foreground">{material.categoria}</p>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="text-sm">
-          <p>{material.unidadeCompra}</p>
-          {material.pesoCompra && (
-            <p className="text-muted-foreground">{material.pesoCompra}g</p>
-          )}
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="text-sm">
-          <p>{material.unidadeUso}</p>
-          {material.relacaoConversao && (
-            <p className="text-muted-foreground">
-              {material.relacaoConversao.toFixed(2)} un/g
-            </p>
-          )}
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-2">
-          <div className="w-24">
-            <Progress value={percentualEstoque} className="h-2" />
-          </div>
-          <span className="text-sm font-medium">
-            {material.quantidadeDisponivel}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <span className="text-sm text-muted-foreground">{material.estoqueMinimo}</span>
-      </TableCell>
-      <TableCell>
-        <Badge className={cn('text-xs', statusEstoque.color)}>
-          {statusEstoque.label}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        <span className="font-medium">
-          {material.custoUnitario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-        </span>
-      </TableCell>
-      <TableCell>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8">
-              <MoreHorizontal className="size-4" />
-              <span className="sr-only">Ações</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Edit className="mr-2 size-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Plus className="mr-2 size-4" />
-              Adicionar Entrada
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <History className="mr-2 size-4" />
-              Ver Histórico
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
-              <Trash2 className="mr-2 size-4" />
-              Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
-    </TableRow>
-  )
-}
-
-function AddMaterialDialog() {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 size-4" />
-          Adicionar Material
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="font-serif">Adicionar Material</DialogTitle>
-          <DialogDescription>
-            Cadastre um novo material no estoque. O sistema irá calcular automaticamente a conversão.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="nome">Nome do Material</Label>
-            <Input id="nome" placeholder="Ex: Contas de Cristal 6mm" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="categoria">Categoria</Label>
-              <Select>
-                <SelectTrigger id="categoria">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categorias.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="fornecedor">Fornecedor</Label>
-              <Input id="fornecedor" placeholder="Nome do fornecedor" />
-            </div>
-          </div>
-
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Scale className="size-4 text-primary" />
-              <span className="text-sm font-medium">Conversão de Unidades</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="unidadeCompra">Unidade de Compra</Label>
-                <Select>
-                  <SelectTrigger id="unidadeCompra">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unidadesCompra.map((un) => (
-                      <SelectItem key={un.value} value={un.value}>
-                        {un.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pesoCompra">Peso do Pacote (g)</Label>
-                <Input id="pesoCompra" type="number" placeholder="80" />
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              <Label htmlFor="quantidadeEstimada">Quantidade Estimada de Unidades</Label>
-              <Input id="quantidadeEstimada" type="number" placeholder="60" />
-              <p className="text-xs text-muted-foreground">
-                O sistema irá melhorar essa conversão com o tempo, baseado no consumo real.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="precoCompra">Preço de Compra (R$)</Label>
-              <Input id="precoCompra" type="number" step="0.01" placeholder="25.00" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="estoqueMinimo">Estoque Mínimo</Label>
-              <Input id="estoqueMinimo" type="number" placeholder="100" />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={() => setOpen(false)}>Salvar Material</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function EstoqueCards() {
-  const totalMateriais = materiais.length
-  const materiaisCriticos = materiais.filter((m) => m.quantidadeDisponivel < m.estoqueMinimo).length
-  const materiaisBaixos = materiais.filter(
-    (m) => m.quantidadeDisponivel >= m.estoqueMinimo && m.quantidadeDisponivel < m.estoqueMinimo * 1.5
-  ).length
-  const valorTotalEstoque = materiais.reduce((acc, m) => acc + m.quantidadeDisponivel * m.custoUnitario, 0)
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Total de Materiais</CardTitle>
-          <Package className="size-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{totalMateriais}</div>
-          <p className="text-xs text-muted-foreground">itens cadastrados</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Estoque Crítico</CardTitle>
-          <AlertTriangle className="size-4 text-destructive" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-destructive">{materiaisCriticos}</div>
-          <p className="text-xs text-muted-foreground">abaixo do mínimo</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Estoque Baixo</CardTitle>
-          <AlertTriangle className="size-4 text-warning" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-warning">{materiaisBaixos}</div>
-          <p className="text-xs text-muted-foreground">próximo do mínimo</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Valor em Estoque</CardTitle>
-          <Package className="size-4 text-primary" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {valorTotalEstoque.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-          </div>
-          <p className="text-xs text-muted-foreground">custo total</p>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-export default function EstoquePage() {
+export default function EstoqueApp() {
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [categoriaFilter, setCategoriaFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-
-  const filteredMateriais = materiais.filter((material) => {
-    const matchSearch = material.nome.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchCategoria = categoriaFilter === 'all' || material.categoria === categoriaFilter
-    const matchStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'critico' && material.quantidadeDisponivel < material.estoqueMinimo) ||
-      (statusFilter === 'baixo' &&
-        material.quantidadeDisponivel >= material.estoqueMinimo &&
-        material.quantidadeDisponivel < material.estoqueMinimo * 1.5) ||
-      (statusFilter === 'ok' && material.quantidadeDisponivel >= material.estoqueMinimo * 1.5)
-
-    return matchSearch && matchCategoria && matchStatus
+  const [unitFilter, setUnitFilter] = useState('all')
+  const [formData, setFormData] = useState({
+    name: '',
+    sku: '',
+    unit_type: 'unidades',
+    quantity_in_package: '',
+    cost_per_package: '',
+    minimum_quantity: '',
+    current_quantity: '',
+    weight_grams: '',
   })
 
+  useEffect(() => {
+    fetchMaterials()
+  }, [])
+
+  const fetchMaterials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('materials')
+        .select('*')
+        .order('name')
+
+      if (error) throw error
+      setMaterials(data || [])
+    } catch (error: any) {
+      toast.error('Erro ao carregar estoque')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleAddMaterial = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
+      const costPerUnit = Number(formData.cost_per_package) / Number(formData.quantity_in_package)
+      
+      const { error } = await supabase
+        .from('materials')
+        .insert({
+          name: formData.name,
+          sku: formData.sku || undefined,
+          unit_type: formData.unit_type,
+          quantity_in_package: Number(formData.quantity_in_package),
+          cost_per_package: Number(formData.cost_per_package),
+          cost_per_unit: costPerUnit,
+          minimum_quantity: Number(formData.minimum_quantity) || 0,
+          current_quantity: Number(formData.current_quantity) || 0,
+          weight_grams: formData.weight_grams ? Number(formData.weight_grams) : null,
+        })
+
+      if (error) throw error
+
+      toast.success('Material adicionado com sucesso!')
+      setFormData({
+        name: '',
+        sku: '',
+        unit_type: 'unidades',
+        quantity_in_package: '',
+        cost_per_package: '',
+        minimum_quantity: '',
+        current_quantity: '',
+        weight_grams: '',
+      })
+      setIsOpen(false)
+      fetchMaterials()
+    } catch (error: any) {
+      toast.error(error.message)
+    }
+  }
+
+  const handleDeleteMaterial = async (id: string) => {
+    if (!confirm('Tem certeza que deseja deletar este material?')) return
+
+    try {
+      const { error } = await supabase
+        .from('materials')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      toast.success('Material deletado')
+      fetchMaterials()
+    } catch (error: any) {
+      toast.error(error.message)
+    }
+  }
+
+  const filteredMaterials = materials.filter(m => {
+    const matchSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                       (m.sku && m.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+    const matchUnit = unitFilter === 'all' || m.unit_type === unitFilter
+    return matchSearch && matchUnit
+  })
+
+  const stats = {
+    total: materials.length,
+    lowStock: materials.filter(m => m.minimum_quantity && m.current_quantity < m.minimum_quantity).length,
+    totalValue: materials.reduce((sum, m) => sum + (m.current_quantity * m.cost_per_unit), 0),
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-2xl font-semibold text-foreground">Estoque</h1>
-          <p className="text-muted-foreground">Gerencie seus materiais e controle o estoque</p>
+          <h1 className="text-3xl font-bold tracking-tight">Estoque</h1>
+          <p className="text-muted-foreground mt-2">Gerencie materiais e controle de quantidade</p>
         </div>
-        <AddMaterialDialog />
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="w-4 h-4 mr-2" />Adicionar Material</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Novo Material</DialogTitle>
+              <DialogDescription>Cadastre um novo material ao estoque com cálculo automático de custo</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleAddMaterial} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Nome *</label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">SKU</label>
+                  <Input
+                    value={formData.sku}
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-muted/50 p-4 rounded-lg space-y-4">
+                <h3 className="font-semibold text-sm">Conversão de Unidades</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Unidade de Medida *</label>
+                    <Select value={formData.unit_type} onValueChange={(value) => setFormData({ ...formData, unit_type: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gramas">Gramas</SelectItem>
+                        <SelectItem value="kilos">Quilos</SelectItem>
+                        <SelectItem value="unidades">Unidades</SelectItem>
+                        <SelectItem value="metros">Metros</SelectItem>
+                        <SelectItem value="centimetros">Centímetros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Peso do Pacote (g)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.weight_grams}
+                      onChange={(e) => setFormData({ ...formData, weight_grams: e.target.value })}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Quantidade por Pacote *</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.quantity_in_package}
+                    onChange={(e) => setFormData({ ...formData, quantity_in_package: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Custo por Pacote (R$) *</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.cost_per_package}
+                    onChange={(e) => setFormData({ ...formData, cost_per_package: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Quantidade Atual</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.current_quantity}
+                    onChange={(e) => setFormData({ ...formData, current_quantity: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Quantidade Mínima</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.minimum_quantity}
+                    onChange={(e) => setFormData({ ...formData, minimum_quantity: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full">Adicionar Material</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Cards */}
-      <EstoqueCards />
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total de Materiais</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">itens cadastrados</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              Estoque Baixo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{stats.lowStock}</div>
+            <p className="text-xs text-muted-foreground">abaixo do mínimo</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Valor em Estoque</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ {stats.totalValue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">custo total</p>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Tabela */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="font-serif">Materiais</CardTitle>
-              <CardDescription>Lista completa de materiais cadastrados</CardDescription>
+              <CardTitle>Materiais</CardTitle>
+              <CardDescription>Lista de todos os materiais cadastrados</CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:flex-initial">
+                <Search className="absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar material..."
-                  className="w-full pl-9 sm:w-64"
+                  placeholder="Buscar..."
+                  className="pl-9 w-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Categoria" />
+              <Select value={unitFilter} onValueChange={setUnitFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {categorias.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="critico">Crítico</SelectItem>
-                  <SelectItem value="baixo">Baixo</SelectItem>
-                  <SelectItem value="ok">OK</SelectItem>
+                  <SelectItem value="all">Todas unidades</SelectItem>
+                  <SelectItem value="gramas">Gramas</SelectItem>
+                  <SelectItem value="kilos">Quilos</SelectItem>
+                  <SelectItem value="unidades">Unidades</SelectItem>
+                  <SelectItem value="metros">Metros</SelectItem>
+                  <SelectItem value="centimetros">Centímetros</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[300px]">Material</TableHead>
-                  <TableHead>Un. Compra</TableHead>
-                  <TableHead>Un. Uso</TableHead>
-                  <TableHead>Disponível</TableHead>
-                  <TableHead>Mínimo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Custo Un.</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMateriais.length > 0 ? (
-                  filteredMateriais.map((material) => (
-                    <MaterialRow key={material.id} material={material} />
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">
-                      Nenhum material encontrado.
-                    </TableCell>
+          {isLoading ? (
+            <div className="text-center py-8">Carregando...</div>
+          ) : filteredMaterials.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchTerm || unitFilter !== 'all' ? 'Nenhum resultado encontrado' : 'Nenhum material cadastrado'}
+            </div>
+          ) : (
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Material</TableHead>
+                    <TableHead>Unidade</TableHead>
+                    <TableHead>Quantidade</TableHead>
+                    <TableHead>Mínimo</TableHead>
+                    <TableHead>Custo Unit.</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-20">Ações</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredMaterials.map((material) => {
+                    const isLowStock = material.minimum_quantity && material.current_quantity < material.minimum_quantity
+                    const percentual = material.minimum_quantity ? (material.current_quantity / material.minimum_quantity) * 100 : 0
+                    
+                    return (
+                      <TableRow key={material.id} className={isLowStock ? 'bg-destructive/5' : ''}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{material.name}</p>
+                            {material.sku && <p className="text-xs text-muted-foreground">SKU: {material.sku}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{material.unit_type}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{material.current_quantity}</p>
+                            <Progress value={Math.min(percentual, 100)} className="h-1 w-20" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{material.minimum_quantity || '-'}</TableCell>
+                        <TableCell>R$ {material.cost_per_unit.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {isLowStock ? (
+                            <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                              <AlertTriangle className="w-3 h-3" />
+                              Baixo
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">OK</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost"><Pencil className="w-4 h-4" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDeleteMaterial(material.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
