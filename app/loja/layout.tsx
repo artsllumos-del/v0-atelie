@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { LogOut, User, ShoppingCart, Menu, Home } from 'lucide-react'
+import { LogOut, User, ShoppingCart } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
@@ -13,12 +13,14 @@ function LojaHeader() {
   const router = useRouter()
   const supabase = createClient()
   const [userEmail, setUserEmail] = useState('')
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUserEmail(user.email || '')
+        setIsLoggedIn(true)
       }
     }
     getUser()
@@ -27,7 +29,9 @@ function LojaHeader() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
-      router.push('/auth')
+      setIsLoggedIn(false)
+      setUserEmail('')
+      router.push('/loja')
       toast.success('Logout realizado')
     } catch (error) {
       toast.error('Erro ao fazer logout')
@@ -55,27 +59,33 @@ function LojaHeader() {
             </Button>
           </Link>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="rounded-full w-10 h-10">
-                {userEmail.charAt(0).toUpperCase() || 'U'}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="text-xs">{userEmail}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/loja/conta" className="cursor-pointer">
-                  <User className="w-4 h-4 mr-2" />
-                  Minha Conta
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isLoggedIn ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="rounded-full w-10 h-10">
+                  {userEmail.charAt(0).toUpperCase() || 'U'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="text-xs">{userEmail}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/loja/conta" className="cursor-pointer">
+                    <User className="w-4 h-4 mr-2" />
+                    Minha Conta
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link href="/auth">
+              <Button size="sm">Entrar</Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>
@@ -83,36 +93,6 @@ function LojaHeader() {
 }
 
 export default function LojaLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
-  const supabase = createClient()
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session) {
-        router.push('/auth')
-        return
-      }
-
-      setIsLoading(false)
-    }
-
-    checkAuth()
-  }, [router, supabase.auth])
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <LojaHeader />
