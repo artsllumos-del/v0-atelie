@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { Toaster } from 'sonner'
 import './globals.css'
 
 const geist = Geist({ 
@@ -57,7 +56,6 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${geist.variable} ${geistMono.variable} ${playfairDisplay.variable} bg-background`}>
       <body className="font-sans antialiased">
         {children}
-        <Toaster />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

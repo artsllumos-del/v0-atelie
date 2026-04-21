@@ -1,92 +1,171 @@
-'use client'
-
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Sparkles, ShoppingCart, Package } from 'lucide-react'
 import Link from 'next/link'
+import { ArrowRight, Sparkles, Heart, Star, Package } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { produtos } from '@/lib/mock-data'
+
+function HeroSection() {
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-br from-accent via-background to-background py-20 sm:py-32">
+      <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-10" />
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-3xl text-center">
+          <Badge variant="secondary" className="mb-6 gap-1.5">
+            <Sparkles className="size-3.5" />
+            Feito à mão com amor
+          </Badge>
+          <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+            Terços artesanais que{' '}
+            <span className="text-primary">tocam a alma</span>
+          </h1>
+          <p className="mt-6 text-lg text-muted-foreground">
+            Cada peça é única, confeccionada com materiais selecionados e muito carinho. 
+            Encontre o terço perfeito ou crie o seu próprio, personalizado do seu jeito.
+          </p>
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Button size="lg" asChild>
+              <Link href="/loja/montador">
+                <Sparkles className="mr-2 size-4" />
+                Montar meu terço
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link href="/loja/produtos">
+                Ver coleção
+                <ArrowRight className="ml-2 size-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function FeaturesSection() {
+  const features = [
+    {
+      icon: Heart,
+      title: 'Feito com Amor',
+      description: 'Cada terço é confeccionado manualmente, com atenção aos detalhes e carinho em cada nó.',
+    },
+    {
+      icon: Star,
+      title: 'Materiais Premium',
+      description: 'Utilizamos cristais, pérolas e metais de alta qualidade para garantir durabilidade.',
+    },
+    {
+      icon: Package,
+      title: 'Embalagem Especial',
+      description: 'Todos os terços são embalados com cuidado, perfeitos para presente.',
+    },
+  ]
+
+  return (
+    <section className="border-y bg-muted/30 py-16">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-8 md:grid-cols-3">
+          {features.map((feature) => (
+            <div key={feature.title} className="flex flex-col items-center text-center">
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10">
+                <feature.icon className="size-7 text-primary" />
+              </div>
+              <h3 className="mt-4 font-serif text-lg font-semibold">{feature.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{feature.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ProductCard({ produto }: { produto: typeof produtos[0] }) {
+  return (
+    <Card className="group overflow-hidden transition-all hover:shadow-lg">
+      <div className="aspect-square bg-gradient-to-br from-accent to-muted p-8">
+        <div className="flex size-full items-center justify-center rounded-xl bg-card/50 backdrop-blur">
+          <Package className="size-16 text-primary/50" />
+        </div>
+      </div>
+      <CardContent className="p-5">
+        <h3 className="font-serif font-semibold text-foreground group-hover:text-primary transition-colors">
+          {produto.nome}
+        </h3>
+        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{produto.descricao}</p>
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-lg font-bold text-primary">
+            {produto.precoVenda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </span>
+          <Button size="sm" variant="outline">
+            Ver detalhes
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ProductsSection() {
+  const produtosDestaque = produtos.slice(0, 4)
+
+  return (
+    <section className="py-16 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex items-end justify-between">
+          <div>
+            <h2 className="font-serif text-2xl font-bold sm:text-3xl">Destaques</h2>
+            <p className="mt-2 text-muted-foreground">Nossos terços mais amados</p>
+          </div>
+          <Button variant="ghost" asChild>
+            <Link href="/loja/produtos">
+              Ver todos
+              <ArrowRight className="ml-2 size-4" />
+            </Link>
+          </Button>
+        </div>
+        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {produtosDestaque.map((produto) => (
+            <ProductCard key={produto.id} produto={produto} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function CTASection() {
+  return (
+    <section className="bg-primary py-16 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-serif text-3xl font-bold text-primary-foreground sm:text-4xl">
+            Monte seu terço personalizado
+          </h2>
+          <p className="mt-4 text-lg text-primary-foreground/80">
+            Escolha cada detalhe: contas, cores, entremeio e crucifixo. 
+            Crie uma peça única e especial.
+          </p>
+          <Button size="lg" variant="secondary" className="mt-8" asChild>
+            <Link href="/loja/montador">
+              <Sparkles className="mr-2 size-4" />
+              Começar agora
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 export default function LojaPage() {
   return (
-    <div className="space-y-12">
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-primary/10 to-secondary py-20 px-4 rounded-lg">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
-          <h1 className="text-4xl md:text-5xl font-serif font-bold">
-            Terços Artesanais Sagrados
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Cada peça é feita com dedicação e amor. Personalize seu terço e sinta a diferença da qualidade artesanal.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/loja/montador">
-              <Button size="lg" className="gap-2 w-full sm:w-auto">
-                <Sparkles className="w-5 h-5" />
-                Montar Meu Terço
-              </Button>
-            </Link>
-            <Link href="/loja/produtos">
-              <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto">
-                <Package className="w-5 h-5" />
-                Ver Catálogo
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Destaque */}
-      <section className="max-w-6xl mx-auto px-4">
-        <h2 className="text-2xl font-serif font-bold mb-8">Por que Escolher?</h2>
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <Sparkles className="w-8 h-8 text-primary mb-2" />
-              <CardTitle>Artesanal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Cada terço é feito à mão com atenção especial aos detalhes
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <ShoppingCart className="w-8 h-8 text-primary mb-2" />
-              <CardTitle>Personalizado</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Monte seu terço escolhendo cores, materiais e tamanho
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <Package className="w-8 h-8 text-primary mb-2" />
-              <CardTitle>Qualidade</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Usamos apenas os melhores materiais e técnicas tradicionais
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="bg-muted py-12 px-4 rounded-lg max-w-6xl mx-auto w-full">
-        <div className="text-center space-y-4">
-          <h2 className="text-2xl font-serif font-bold">Comece Agora</h2>
-          <p className="text-muted-foreground">Crie seu terço personalizado em poucos minutos</p>
-          <Link href="/loja/montador">
-            <Button size="lg" className="gap-2">
-              <Sparkles className="w-5 h-5" />
-              Montar Terço
-            </Button>
-          </Link>
-        </div>
-      </section>
-    </div>
+    <>
+      <HeroSection />
+      <FeaturesSection />
+      <ProductsSection />
+      <CTASection />
+    </>
   )
 }

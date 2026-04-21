@@ -1,107 +1,148 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { LogOut, User, ShoppingCart } from 'lucide-react'
-import { toast } from 'sonner'
 import Link from 'next/link'
+import { ShoppingCart, User, Menu } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 
-function LojaHeader() {
-  const router = useRouter()
-  const supabase = createClient()
-  const [userEmail, setUserEmail] = useState('')
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+const navLinks = [
+  { href: '/loja', label: 'Início' },
+  { href: '/loja/produtos', label: 'Produtos' },
+  { href: '/loja/montador', label: 'Montar Terço' },
+  { href: '/loja/sobre', label: 'Sobre' },
+]
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserEmail(user.email || '')
-        setIsLoggedIn(true)
-      }
-    }
-    getUser()
-  }, [supabase.auth])
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      setIsLoggedIn(false)
-      setUserEmail('')
-      router.push('/loja')
-      toast.success('Logout realizado')
-    } catch (error) {
-      toast.error('Erro ao fazer logout')
-    }
-  }
-
+function MobileNav() {
   return (
-    <header className="border-b bg-background sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-        <Link href="/loja" className="flex items-center gap-2 font-serif text-xl font-bold text-primary hover:text-primary/80 transition-colors">
-          <span>Ateliê Sagrado</span>
-        </Link>
-
-        <nav className="hidden md:flex items-center gap-8">
-          <Link href="/loja" className="text-sm hover:text-primary transition-colors">Início</Link>
-          <Link href="/loja/produtos" className="text-sm hover:text-primary transition-colors">Catálogo</Link>
-          <Link href="/loja/montador" className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors">Montar Terço</Link>
-        </nav>
-
-        <div className="flex items-center gap-4">
-          <Link href="/loja/carrinho">
-            <Button variant="outline" size="sm" className="gap-2">
-              <ShoppingCart className="w-4 h-4" />
-              Carrinho
-            </Button>
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" className="md:hidden">
+          <Menu className="size-5" />
+          <span className="sr-only">Menu</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-72">
+        <div className="flex flex-col gap-6 pt-6">
+          <Link href="/loja" className="flex items-center gap-2">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <span className="font-serif text-lg font-bold">A</span>
+            </div>
+            <span className="font-serif text-xl font-semibold">Ateliê Sagrado</span>
           </Link>
-
-          {isLoggedIn ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="rounded-full w-10 h-10">
-                  {userEmail.charAt(0).toUpperCase() || 'U'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="text-xs">{userEmail}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/loja/conta" className="cursor-pointer">
-                    <User className="w-4 h-4 mr-2" />
-                    Minha Conta
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Link href="/auth">
-              <Button size="sm">Entrar</Button>
-            </Link>
-          )}
+          <nav className="flex flex-col gap-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded-lg px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
-      </div>
-    </header>
+      </SheetContent>
+    </Sheet>
   )
 }
 
 export default function LojaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <LojaHeader />
-      <main className="flex-1">
-        {children}
-      </main>
-      <footer className="border-t bg-card mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 Ateliê Sagrado. Todos os direitos reservados.</p>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
+            <MobileNav />
+            <Link href="/loja" className="flex items-center gap-2">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <span className="font-serif text-lg font-bold">A</span>
+              </div>
+              <span className="hidden font-serif text-xl font-semibold sm:inline-block">
+                Ateliê Sagrado
+              </span>
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden items-center gap-6 md:flex">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/loja/carrinho">
+                <ShoppingCart className="size-5" />
+                <span className="sr-only">Carrinho</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/loja/conta">
+                <User className="size-5" />
+                <span className="sr-only">Minha Conta</span>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main>{children}</main>
+
+      {/* Footer */}
+      <footer className="border-t bg-card py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-8 md:grid-cols-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <span className="font-serif text-lg font-bold">A</span>
+                </div>
+                <span className="font-serif text-xl font-semibold">Ateliê Sagrado</span>
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground">
+                Terços artesanais feitos com amor, fé e dedicação. 
+                Cada peça é única e especial.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-serif font-semibold">Links</h3>
+              <ul className="mt-4 space-y-2">
+                {navLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-serif font-semibold">Contato</h3>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                <li>contato@ateliesagrado.com.br</li>
+                <li>(11) 99999-9999</li>
+                <li>São Paulo, SP</li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
+            <p>&copy; {new Date().getFullYear()} Ateliê Sagrado. Todos os direitos reservados.</p>
+          </div>
         </div>
       </footer>
     </div>
