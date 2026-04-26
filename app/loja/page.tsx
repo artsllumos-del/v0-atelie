@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { ArrowRight, Sparkles, Heart, Star, Package } from 'lucide-react'
+import { ArrowRight, Sparkles, Heart, Star, Package, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { produtos } from '@/lib/mock-data'
+import { getProducts } from '@/lib/supabase/products'
 
 function HeroSection() {
   return (
@@ -81,25 +81,36 @@ function FeaturesSection() {
   )
 }
 
-function ProductCard({ produto }: { produto: typeof produtos[0] }) {
+function ProductCard({ produto }: { produto: any }) {
+  const price = produto.sale_price || produto.base_price || 0
+  
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-lg">
-      <div className="aspect-square bg-gradient-to-br from-accent to-muted p-8">
+      <div className="aspect-square bg-gradient-to-br from-primary/20 to-primary/5 p-8">
         <div className="flex size-full items-center justify-center rounded-xl bg-card/50 backdrop-blur">
-          <Package className="size-16 text-primary/50" />
+          <span className="text-5xl">🙏</span>
         </div>
       </div>
       <CardContent className="p-5">
-        <h3 className="font-serif font-semibold text-foreground group-hover:text-primary transition-colors">
-          {produto.nome}
+        <h3 className="font-serif font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+          {produto.name}
         </h3>
-        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{produto.descricao}</p>
+        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{produto.description}</p>
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-lg font-bold text-primary">
-            {produto.precoVenda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-          </span>
-          <Button size="sm" variant="outline">
-            Ver detalhes
+          <div className="flex flex-col">
+            {produto.sale_price && produto.sale_price < produto.base_price && (
+              <span className="text-xs text-muted-foreground line-through">
+                R$ {produto.base_price.toFixed(2)}
+              </span>
+            )}
+            <span className="text-lg font-bold text-primary">
+              R$ {price.toFixed(2)}
+            </span>
+          </div>
+          <Button size="sm" variant="outline" asChild>
+            <Link href={`/produto/${produto.id}`}>
+              Ver detalhes
+            </Link>
           </Button>
         </div>
       </CardContent>
@@ -107,8 +118,9 @@ function ProductCard({ produto }: { produto: typeof produtos[0] }) {
   )
 }
 
-function ProductsSection() {
-  const produtosDestaque = produtos.slice(0, 4)
+async function ProductsSection() {
+  const products = await getProducts()
+  const produtosDestaque = products.filter((p: any) => p.is_active).slice(0, 4)
 
   return (
     <section className="py-16 sm:py-24">
@@ -125,11 +137,23 @@ function ProductsSection() {
             </Link>
           </Button>
         </div>
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {produtosDestaque.map((produto) => (
-            <ProductCard key={produto.id} produto={produto} />
-          ))}
-        </div>
+        {produtosDestaque.length > 0 ? (
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {produtosDestaque.map((produto: any) => (
+              <ProductCard key={produto.id} produto={produto} />
+            ))}
+          </div>
+        ) : (
+          <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-dashed py-16">
+            <Package className="size-16 text-muted-foreground" />
+            <h3 className="mt-4 font-serif text-xl font-medium">
+              Em breve novos produtos
+            </h3>
+            <p className="mt-2 text-muted-foreground">
+              Estamos preparando peças especiais para você
+            </p>
+          </div>
+        )}
       </div>
     </section>
   )
@@ -159,7 +183,7 @@ function CTASection() {
   )
 }
 
-export default function LojaPage() {
+export default async function LojaPage() {
   return (
     <>
       <HeroSection />

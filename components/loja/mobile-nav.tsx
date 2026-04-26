@@ -7,6 +7,8 @@ import {
   Sheet,
   SheetContent,
   SheetTrigger,
+  SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet'
 
 const navLinks = [
@@ -26,6 +28,8 @@ export function MobileNav() {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72">
+        <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
+        <SheetDescription className="sr-only">Navegue pelas páginas da loja</SheetDescription>
         <div className="flex flex-col gap-6 pt-6">
           <Link href="/loja" className="flex items-center gap-2">
             <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">

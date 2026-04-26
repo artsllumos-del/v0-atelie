@@ -262,11 +262,11 @@ function OrcamentoRow({ orcamento }: { orcamento: Orcamento }) {
   )
 }
 
-function OrcamentosCards() {
-  const totalOrcamentos = orcamentos.length
-  const rascunhos = orcamentos.filter((o) => o.status === 'rascunho').length
-  const enviados = orcamentos.filter((o) => o.status === 'enviado').length
-  const valorTotal = orcamentos.reduce((acc, o) => acc + o.total, 0)
+function OrcamentosCards({ quotes }: { quotes: any[] }) {
+  const totalOrcamentos = quotes.length
+  const rascunhos = quotes.filter((o) => o.status === 'rascunho' || !o.is_active).length
+  const enviados = quotes.filter((o) => o.is_active && o.status !== 'rascunho').length
+  const valorTotal = quotes.reduce((acc, o) => acc + (o.total || 0), 0)
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -347,7 +347,7 @@ export default function OrcamentosPage() {
       </div>
 
       {/* Cards */}
-      <OrcamentosCards />
+      <OrcamentosCards quotes={quotes} />
 
       {/* Tabela */}
       <Card>
