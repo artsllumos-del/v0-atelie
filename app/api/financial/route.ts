@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+export async function PATCH(req: NextRequest) {
   try {
     const summary = await getFinancialSummary()
     return NextResponse.json(summary)
