@@ -1,17 +1,47 @@
 // Funções para gerenciar produtos no Supabase
-import { supabase } from './client'
+import { createClient } from './client'
 
 export async function getProducts() {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .order('created_at', { ascending: false })
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-  if (error) throw error
-  return data || []
+    if (error) {
+      console.error('Error fetching products:', error.message)
+      return []
+    }
+    return data || []
+  } catch (err) {
+    console.error('Error fetching products:', err)
+    return []
+  }
+}
+
+export async function getProductById(id: string) {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) {
+      console.error('Error fetching product:', error.message)
+      return null
+    }
+    return data
+  } catch (err) {
+    console.error('Error fetching product:', err)
+    return null
+  }
 }
 
 export async function createProduct(product: any) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('products')
     .insert([{
@@ -31,6 +61,7 @@ export async function createProduct(product: any) {
 }
 
 export async function updateProduct(id: string, product: any) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('products')
     .update({
@@ -51,6 +82,7 @@ export async function updateProduct(id: string, product: any) {
 }
 
 export async function deleteProduct(id: string) {
+  const supabase = createClient()
   const { error } = await supabase
     .from('products')
     .delete()

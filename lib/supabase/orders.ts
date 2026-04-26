@@ -47,6 +47,9 @@ export async function addOrderItem(item: any) {
   return data
 }
 
+// Alias for addOrderItem for compatibility
+export const createOrderItem = addOrderItem
+
 export async function updateOrderItem(id: string, updates: any) {
   const supabase = createClient()
   const { data, error } = await supabase.from('order_items').update(updates).eq('id', id).select().single()
