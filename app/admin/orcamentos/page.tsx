@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import useSWR from 'swr'
+import { getQuotes } from '@/lib/supabase/quotes'
 import {
   Plus,
   Search,
@@ -55,7 +57,6 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import { orcamentos } from '@/lib/mock-data'
 import type { Orcamento, StatusOrcamento } from '@/lib/types'
 
 const statusConfig: Record<StatusOrcamento, { label: string; color: string; icon: typeof Clock }> = {
@@ -321,12 +322,13 @@ function OrcamentosCards() {
 export default function OrcamentosPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const { data: quotes = [], isLoading } = useSWR('quotes-admin', getQuotes)
 
-  const filteredOrcamentos = orcamentos.filter((orcamento) => {
+  const filteredOrcamentos = quotes.filter((quote: any) => {
     const matchSearch =
-      orcamento.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      orcamento.cliente?.nome.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchStatus = statusFilter === 'all' || orcamento.status === statusFilter
+      quote.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (quote.client_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const matchStatus = statusFilter === 'all' || quote.status === statusFilter
     return matchSearch && matchStatus
   })
 
