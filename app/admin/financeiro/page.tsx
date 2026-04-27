@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import useSWR from 'swr'
-import { getFinancialTransactions, getFinancialSummary } from '@/lib/supabase/financial'
 import {
   DollarSign,
   TrendingUp,
@@ -339,12 +337,9 @@ function LucratividadeTab() {
 }
 
 export default function FinanceiroPage() {
-  const { data: transactions = [] } = useSWR('financial-transactions', getFinancialTransactions)
-  const { data: summary } = useSWR('financial-summary', getFinancialSummary)
-
-  const receitaTotal = summary?.receitas || 0
-  const despesaTotal = summary?.despesas || 0
-  const lucroLiquido = summary?.lucro || 0
+  const receitaTotal = transacoes.filter((t) => t.tipo === 'receita').reduce((acc, t) => acc + t.valor, 0)
+  const despesaTotal = transacoes.filter((t) => t.tipo === 'despesa').reduce((acc, t) => acc + t.valor, 0)
+  const lucroLiquido = receitaTotal - despesaTotal
 
   return (
     <div className="space-y-6">

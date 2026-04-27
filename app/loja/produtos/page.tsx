@@ -1,24 +1,39 @@
 'use client'
 
 import { useState } from 'react'
-import useSWR from 'swr'
 import Link from 'next/link'
-import { Search, Package, ShoppingCart, Heart, Sparkles, Loader2 } from 'lucide-react'
+import { Search, Filter, Package, ShoppingCart, Heart, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { getProducts } from '@/lib/supabase/products'
-import { toast } from 'sonner'
+import { produtos } from '@/lib/mock-data'
 
-function ProductCard({ product }: { product: any }) {
+const categorias = [
+  { value: 'all', label: 'Todas' },
+  { value: 'terco', label: 'Terços' },
+  { value: 'rosario', label: 'Rosários' },
+  { value: 'pulseira', label: 'Pulseiras' },
+  { value: 'dezena', label: 'Dezenas' },
+]
+
+function ProductCard({ produto }: { produto: typeof produtos[0] }) {
   const [liked, setLiked] = useState(false)
 
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-lg">
-      <div className="relative aspect-square bg-gradient-to-br from-primary/20 to-primary/5 p-6 flex items-center justify-center">
-        <span className="text-6xl">🙏</span>
+      <div className="relative aspect-square bg-gradient-to-br from-accent to-muted p-6">
+        <div className="flex size-full items-center justify-center rounded-xl bg-card/50 backdrop-blur">
+          <Package className="size-20 text-primary/30" />
+        </div>
         <button
           onClick={() => setLiked(!liked)}
           className={cn(
@@ -28,20 +43,31 @@ function ProductCard({ product }: { product: any }) {
         >
           <Heart className={cn('size-5', liked && 'fill-current')} />
         </button>
+        {produto.precoOverride && (
+          <Badge className="absolute left-3 top-3 bg-primary">
+            Destaque
+          </Badge>
+        )}
       </div>
       <CardContent className="p-5">
-        <h3 className="font-serif font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-          {product.name}
+        <div className="mb-2">
+          <Badge variant="secondary" className="text-xs capitalize">
+            {produto.categoria}
+          </Badge>
+        </div>
+        <h3 className="font-serif font-semibold text-foreground group-hover:text-primary transition-colors">
+          {produto.nome}
         </h3>
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-          {product.description}
+          {produto.descricao}
         </p>
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-lg font-bold text-primary">
-            R$ {(product.base_price || 0).toFixed(2)}
+          <span className="text-xl font-bold text-primary">
+            {produto.precoVenda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </span>
-          <Button size="sm" onClick={() => toast.success('Adicionado ao carrinho!')}>
-            <ShoppingCart className="size-4" />
+          <Button size="sm">
+            <ShoppingCart className="mr-1 size-4" />
+            Comprar
           </Button>
         </div>
       </CardContent>
@@ -51,10 +77,20 @@ function ProductCard({ product }: { product: any }) {
 
 export default function ProdutosPage() {
   const [searchTerm, setSearchTerm] = useState('')
-  const { data: products = [], isLoading } = useSWR('products-page', getProducts)
+  const [categoriaFilter, setCategoriaFilter] = useState('all')
+  const [ordenacao, setOrdenacao] = useState('nome')
 
-  const filteredProducts = products
-    .filter((p: any) => p.is_active && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredProdutos = produtos
+    .filter((produto) => {
+      const matchSearch = produto.nome.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchCategoria = categoriaFilter === 'all' || produto.categoria === categoriaFilter
+      return matchSearch && matchCategoria && produto.ativo
+    })
+    .sort((a, b) => {
+      if (ordenacao === 'preco-asc') return a.precoVenda - b.precoVenda
+      if (ordenacao === 'preco-desc') return b.precoVenda - a.precoVenda
+      return a.nome.localeCompare(b.nome)
+    })
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,6 +116,30 @@ export default function ProdutosPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="flex gap-2">
+            <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {categorias.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={ordenacao} onValueChange={setOrdenacao}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nome">Nome</SelectItem>
+                <SelectItem value="preco-asc">Menor preço</SelectItem>
+                <SelectItem value="preco-desc">Maior preço</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -109,14 +169,10 @@ export default function ProdutosPage() {
         </Card>
 
         {/* Grid de Produtos */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredProducts.length > 0 ? (
+        {filteredProdutos.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredProducts.map((product: any) => (
-              <ProductCard key={product.id} product={product} />
+            {filteredProdutos.map((produto) => (
+              <ProductCard key={produto.id} produto={produto} />
             ))}
           </div>
         ) : (
@@ -125,8 +181,18 @@ export default function ProdutosPage() {
             <h3 className="mt-4 font-serif text-xl font-medium">
               Nenhum produto encontrado
             </h3>
-            <Button variant="outline" className="mt-4" onClick={() => setSearchTerm('')}>
-              Limpar busca
+            <p className="mt-2 text-muted-foreground">
+              Tente ajustar os filtros de busca
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setSearchTerm('')
+                setCategoriaFilter('all')
+              }}
+            >
+              Limpar filtros
             </Button>
           </div>
         )}

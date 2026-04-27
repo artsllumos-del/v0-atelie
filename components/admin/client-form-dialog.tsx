@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { createNewClient, updateClient } from '@/lib/supabase/clients'
+import { createClient, updateClient } from '@/lib/supabase/clients'
 
 const clientFormSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
@@ -84,7 +84,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
         await updateClient(client.id, values)
         toast.success('Cliente atualizado com sucesso')
       } else {
-        await createNewClient(values as any)
+        await createClient(values as any)
         toast.success('Cliente criado com sucesso')
       }
       

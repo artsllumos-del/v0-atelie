@@ -1,8 +1,7 @@
 // Funções para gerenciar estoque no Supabase
-import { createClient } from './client'
+import { supabase } from './client'
 
 export async function getInventoryItems() {
-  const supabase = createClient()
   const { data, error } = await supabase
     .from('inventory')
     .select('*')
@@ -13,7 +12,6 @@ export async function getInventoryItems() {
 }
 
 export async function getLowStockItems(threshold: number = 5) {
-  const supabase = createClient()
   const { data, error } = await supabase
     .from('inventory')
     .select('*')
@@ -26,7 +24,6 @@ export async function getLowStockItems(threshold: number = 5) {
 }
 
 export async function createInventoryItem(item: any) {
-  const supabase = createClient()
   const { data, error } = await supabase
     .from('inventory')
     .insert([{
@@ -45,7 +42,6 @@ export async function createInventoryItem(item: any) {
 }
 
 export async function updateInventoryItem(id: string, item: any) {
-  const supabase = createClient()
   const { data, error } = await supabase
     .from('inventory')
     .update({
@@ -65,7 +61,6 @@ export async function updateInventoryItem(id: string, item: any) {
 }
 
 export async function deleteInventoryItem(id: string) {
-  const supabase = createClient()
   const { error } = await supabase
     .from('inventory')
     .delete()
@@ -75,7 +70,6 @@ export async function deleteInventoryItem(id: string) {
 }
 
 export async function updateInventoryQuantity(id: string, newQuantity: number) {
-  const supabase = createClient()
   const { data, error } = await supabase
     .from('inventory')
     .update({
