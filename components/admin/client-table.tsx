@@ -9,7 +9,10 @@ import {
   MoreHorizontal,
   Edit,
   Eye,
+  Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { deleteClient } from '@/lib/supabase/clients'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -33,9 +36,24 @@ import Link from 'next/link'
 interface ClientTableProps {
   clients: any[]
   onEdit: (client: any) => void
+  onRefresh: () => void
 }
 
-export function ClientTable({ clients, onEdit }: ClientTableProps) {
+export function ClientTable({ clients, onEdit, onRefresh }: ClientTableProps) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleDelete = async (id: string) => {
+    try {
+      setDeletingId(id)
+      await deleteClient(id)
+      toast.success('Cliente deletado com sucesso')
+      onRefresh()
+    } catch (error) {
+      toast.error('Erro ao deletar cliente')
+    } finally {
+      setDeletingId(null)
+    }
+  }
   return (
     <div className="rounded-lg border">
       <Table>
@@ -108,6 +126,14 @@ export function ClientTable({ clients, onEdit }: ClientTableProps) {
                       <DropdownMenuItem onClick={() => onEdit(client)}>
                         <Edit className="w-4 h-4 mr-2" />
                         Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(client.id)}
+                        disabled={deletingId === client.id}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Deletar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

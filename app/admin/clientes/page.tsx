@@ -173,6 +173,7 @@ export default function ClientesPage() {
             <ClientTable 
               clients={filteredClients} 
               onEdit={handleEdit}
+              onRefresh={() => mutate()}
             />
           )}
         </CardContent>

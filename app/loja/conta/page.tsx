@@ -51,7 +51,7 @@ function PedidoCard({ pedido }: { pedido: typeof pedidos[0] }) {
               <Badge className={cn('text-xs', status.color)}>{status.label}</Badge>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {pedido.criadoEm.toLocaleDateString('pt-BR')}
+              {new Date(pedido.criadoEm).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
             </p>
           </div>
           <span className="text-lg font-bold text-primary">

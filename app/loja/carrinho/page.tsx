@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import useSWR from 'swr'
 import {
   ShoppingCart,
   Trash2,
@@ -10,30 +11,93 @@ import {
   Package,
   ArrowRight,
   Tag,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
-import { produtos } from '@/lib/mock-data'
+import { getProducts } from '@/lib/supabase/products'
+import { toast } from 'sonner'
 
-// Dados mock do carrinho
-const carrinhoInicial = [
-  { produtoId: 'prod-001', produto: produtos[0], quantidade: 2 },
-  { produtoId: 'prod-003', produto: produtos[2], quantidade: 1 },
-]
+interface CartItem {
+  productId: string
+  quantity: number
+}
+
+function useLocalCart() {
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('atelie-cart')
+    if (stored) {
+      try {
+        setCart(JSON.parse(stored))
+      } catch (e) {
+        console.error('Error loading cart:', e)
+      }
+    }
+    setIsLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('atelie-cart', JSON.stringify(cart))
+    }
+  }, [cart, isLoaded])
+
+  const addItem = (productId: string, quantity: number = 1) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.productId === productId)
+      if (existing) {
+        return prev.map(item =>
+          item.productId === productId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        )
+      }
+      return [...prev, { productId, quantity }]
+    })
+  }
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeItem(productId)
+      return
+    }
+    setCart(prev =>
+      prev.map(item =>
+        item.productId === productId ? { ...item, quantity } : item
+      )
+    )
+  }
+
+  const removeItem = (productId: string) => {
+    setCart(prev => prev.filter(item => item.productId !== productId))
+  }
+
+  const clearCart = () => {
+    setCart([])
+  }
+
+  return { cart, isLoaded, addItem, updateQuantity, removeItem, clearCart }
+}
 
 function ItemCarrinho({
   item,
+  product,
   onUpdateQuantidade,
   onRemover,
 }: {
-  item: typeof carrinhoInicial[0]
+  item: CartItem
+  product: any
   onUpdateQuantidade: (quantidade: number) => void
   onRemover: () => void
 }) {
+  const price = product?.sale_price || product?.base_price || 0
+
   return (
     <div className="flex gap-4 py-4">
       <div className="flex size-20 items-center justify-center rounded-xl bg-muted">
@@ -42,9 +106,9 @@ function ItemCarrinho({
       <div className="flex flex-1 flex-col">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-medium">{item.produto.nome}</h3>
+            <h3 className="font-medium">{product?.name || 'Produto'}</h3>
             <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">
-              {item.produto.descricao}
+              {product?.description || ''}
             </p>
           </div>
           <Button
@@ -62,22 +126,22 @@ function ItemCarrinho({
               variant="outline"
               size="icon"
               className="size-8"
-              onClick={() => onUpdateQuantidade(Math.max(1, item.quantidade - 1))}
+              onClick={() => onUpdateQuantidade(Math.max(1, item.quantity - 1))}
             >
               <Minus className="size-3" />
             </Button>
-            <span className="w-8 text-center font-medium">{item.quantidade}</span>
+            <span className="w-8 text-center font-medium">{item.quantity}</span>
             <Button
               variant="outline"
               size="icon"
               className="size-8"
-              onClick={() => onUpdateQuantidade(item.quantidade + 1)}
+              onClick={() => onUpdateQuantidade(item.quantity + 1)}
             >
               <Plus className="size-3" />
             </Button>
           </div>
           <span className="text-lg font-bold text-primary">
-            {(item.produto.precoVenda * item.quantidade).toLocaleString('pt-BR', {
+            {(price * item.quantity).toLocaleString('pt-BR', {
               style: 'currency',
               currency: 'BRL',
             })}
@@ -89,36 +153,43 @@ function ItemCarrinho({
 }
 
 export default function CarrinhoPage() {
-  const [carrinho, setCarrinho] = useState(carrinhoInicial)
+  const { cart, isLoaded, updateQuantity, removeItem } = useLocalCart()
+  const { data: products = [], isLoading } = useSWR('products', getProducts)
   const [cupom, setCupom] = useState('')
   const [cupomAplicado, setCupomAplicado] = useState(false)
   const [desconto, setDesconto] = useState(0)
 
-  const subtotal = carrinho.reduce(
-    (acc, item) => acc + item.produto.precoVenda * item.quantidade,
+  const cartWithProducts = cart.map(item => ({
+    ...item,
+    product: products.find((p: any) => p.id === item.productId)
+  })).filter(item => item.product)
+
+  const subtotal = cartWithProducts.reduce(
+    (acc, item) => acc + (item.product?.sale_price || item.product?.base_price || 0) * item.quantity,
     0
   )
   const frete = subtotal > 200 ? 0 : 15
   const total = subtotal - desconto + frete
 
-  const handleUpdateQuantidade = (index: number, quantidade: number) => {
-    setCarrinho((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantidade } : item))
-    )
-  }
-
-  const handleRemover = (index: number) => {
-    setCarrinho((prev) => prev.filter((_, i) => i !== index))
-  }
-
   const handleAplicarCupom = () => {
     if (cupom.toUpperCase() === 'PRIMEIRACOMPRA') {
       setDesconto(subtotal * 0.1)
       setCupomAplicado(true)
+      toast.success('Cupom aplicado com sucesso!')
+    } else {
+      toast.error('Cupom inválido')
     }
   }
 
-  if (carrinho.length === 0) {
+  if (!isLoaded || isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8 flex items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (cart.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16">
@@ -139,7 +210,7 @@ export default function CarrinhoPage() {
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <h1 className="font-serif text-2xl font-bold sm:text-3xl">Meu Carrinho</h1>
       <p className="mt-1 text-muted-foreground">
-        {carrinho.length} {carrinho.length === 1 ? 'item' : 'itens'} no carrinho
+        {cart.length} {cart.length === 1 ? 'item' : 'itens'} no carrinho
       </p>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-3">
@@ -147,12 +218,13 @@ export default function CarrinhoPage() {
         <div className="lg:col-span-2">
           <Card>
             <CardContent className="divide-y p-4">
-              {carrinho.map((item, index) => (
+              {cartWithProducts.map((item) => (
                 <ItemCarrinho
-                  key={item.produtoId}
+                  key={item.productId}
                   item={item}
-                  onUpdateQuantidade={(q) => handleUpdateQuantidade(index, q)}
-                  onRemover={() => handleRemover(index)}
+                  product={item.product}
+                  onUpdateQuantidade={(q) => updateQuantity(item.productId, q)}
+                  onRemover={() => removeItem(item.productId)}
                 />
               ))}
             </CardContent>
@@ -206,7 +278,7 @@ export default function CarrinhoPage() {
                 </span>
               </div>
               {desconto > 0 && (
-                <div className="flex justify-between text-sm text-success">
+                <div className="flex justify-between text-sm text-green-600">
                   <span>Desconto</span>
                   <span>
                     -{desconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -217,7 +289,7 @@ export default function CarrinhoPage() {
                 <span className="text-muted-foreground">Frete</span>
                 <span>
                   {frete === 0 ? (
-                    <span className="text-success">Grátis</span>
+                    <span className="text-green-600">Grátis</span>
                   ) : (
                     frete.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                   )}
@@ -237,11 +309,9 @@ export default function CarrinhoPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" size="lg" asChild>
-                <Link href="/loja/checkout">
-                  Finalizar Compra
-                  <ArrowRight className="ml-2 size-4" />
-                </Link>
+              <Button className="w-full" size="lg" onClick={() => toast.success('Checkout em desenvolvimento!')}>
+                Finalizar Compra
+                <ArrowRight className="ml-2 size-4" />
               </Button>
             </CardFooter>
           </Card>
