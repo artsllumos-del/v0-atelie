@@ -115,7 +115,7 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
     try {
       setIsLoading(true)
       
-      if (isEditing) {
+      if (isEditing && item?.id) {
         await updateInventoryItem(item.id, values)
         toast.success('Item atualizado com sucesso')
       } else {
@@ -127,8 +127,7 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
       onSuccess()
       form.reset()
     } catch (error) {
-      console.error(error)
-      toast.error('Erro ao salvar item')
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar item')
     } finally {
       setIsLoading(false)
     }

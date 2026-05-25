@@ -69,9 +69,9 @@ export default function EstoquePage() {
     mutate()
   }
 
-  const totalValue = items.reduce((acc, item) => acc + (item.quantity * (item.unit_cost || 0)), 0)
-  const criticalItems = lowStockItems.filter((item: any) => item.quantity === 0).length
-  const lowItems = lowStockItems.filter((item: any) => item.quantity > 0).length
+  const totalValue = items.reduce((acc, item) => acc + ((item.current_quantity || item.quantity || 0) * (item.unit_cost || 0)), 0)
+  const criticalItems = lowStockItems.filter((item: any) => (item.current_quantity || item.quantity) === 0).length
+  const lowItems = lowStockItems.filter((item: any) => (item.current_quantity || item.quantity) > 0).length
 
   return (
     <div className="space-y-6">

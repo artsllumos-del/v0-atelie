@@ -16,15 +16,22 @@ export async function getInventoryItems() {
 
 export async function getLowStockItems(threshold: number = 5) {
   const supabase = createClient()
+  
+  // Primeiro, pega todos os itens onde quantidade <= minimo
   const { data, error } = await supabase
     .from('inventory')
     .select('*')
-    .lte('quantity', 'minimum_quantity')
-    .order('quantity', { ascending: true })
+    .order('current_quantity', { ascending: true })
     .limit(threshold)
 
   if (error) throw error
-  return data || []
+  
+  // Filtra client-side para garantir que pega itens com baixo estoque
+  const filtered = (data || []).filter(item => 
+    (item.current_quantity || 0) <= (item.minimum_quantity || 10)
+  )
+  
+  return filtered
 }
 
 export async function createInventoryItem(item: any) {
@@ -33,12 +40,19 @@ export async function createInventoryItem(item: any) {
     .from('inventory')
     .insert([{
       name: item.name,
+      description: item.description || '',
+      supplier: item.supplier,
       category: item.category,
-      quantity: item.quantity,
-      minimum_quantity: item.minimum_quantity,
-      unit_cost: item.unit_cost,
-      unit: item.unit,
+      unit_type: item.unit_type,
+      current_quantity: item.current_quantity || 0,
+      minimum_quantity: item.minimum_quantity || 10,
+      unit_cost: item.unit_cost || 0,
+      weight_per_unit: item.weight_per_unit || 0,
+      calculation_method: item.calculation_method || 'fixed',
+      status: item.status || 'active',
+      notes: item.notes || '',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }])
     .select()
 
@@ -52,11 +66,17 @@ export async function updateInventoryItem(id: string, item: any) {
     .from('inventory')
     .update({
       name: item.name,
+      description: item.description || '',
+      supplier: item.supplier,
       category: item.category,
-      quantity: item.quantity,
-      minimum_quantity: item.minimum_quantity,
-      unit_cost: item.unit_cost,
-      unit: item.unit,
+      unit_type: item.unit_type,
+      current_quantity: item.current_quantity || 0,
+      minimum_quantity: item.minimum_quantity || 10,
+      unit_cost: item.unit_cost || 0,
+      weight_per_unit: item.weight_per_unit || 0,
+      calculation_method: item.calculation_method || 'fixed',
+      status: item.status || 'active',
+      notes: item.notes || '',
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -81,7 +101,7 @@ export async function updateInventoryQuantity(id: string, newQuantity: number) {
   const { data, error } = await supabase
     .from('inventory')
     .update({
-      quantity: newQuantity,
+      current_quantity: newQuantity,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
