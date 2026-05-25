@@ -56,6 +56,13 @@ export default function ProdutosPage() {
     setSelectedProduct(null)
   }
 
+  const handleOpenChange = (open: boolean) => {
+    setFormDialogOpen(open)
+    if (!open) {
+      setSelectedProduct(null)
+    }
+  }
+
   const handleFormSuccess = () => {
     mutate()
   }
@@ -178,7 +185,7 @@ export default function ProdutosPage() {
 
       <ProductFormDialog 
         open={formDialogOpen}
-        onOpenChange={handleCloseDialog}
+        onOpenChange={handleOpenChange}
         product={selectedProduct}
         onSuccess={handleFormSuccess}
       />
