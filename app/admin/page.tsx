@@ -1,16 +1,21 @@
+'use client'
+
 import { Suspense } from 'react'
+import useSWR from 'swr'
+import Link from 'next/link'
 import {
   ShoppingCart,
   AlertTriangle,
   DollarSign,
   TrendingUp,
-  TrendingDown,
-  Lightbulb,
   Package,
   Clock,
   CheckCircle2,
   Truck,
-  AlertCircle,
+  Plus,
+  ArrowRight,
+  Users,
+  Boxes,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,8 +23,11 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { kpiDashboard, alertas, insights, pedidos, filaProducao, materiais } from '@/lib/mock-data'
+import { getInventoryItems, getLowStockItems } from '@/lib/supabase/inventory'
+import { getProducts } from '@/lib/supabase/products'
+import { getClients } from '@/lib/supabase/clients'
 
+// KPI Card Component
 function KPICard({
   title,
   value,
@@ -27,16 +35,18 @@ function KPICard({
   icon,
   trend,
   trendValue,
+  href,
 }: {
   title: string
-  value: string
+  value: string | number
   description?: string
   icon: React.ReactNode
   trend?: 'up' | 'down' | 'neutral'
   trendValue?: string
+  href?: string
 }) {
-  return (
-    <Card>
+  const content = (
+    <Card className={cn('transition-all', href && 'hover:shadow-md hover:border-primary/20 cursor-pointer')}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         <div className="rounded-lg bg-primary/10 p-2 text-primary">{icon}</div>
@@ -49,11 +59,11 @@ function KPICard({
               <span
                 className={cn(
                   'flex items-center gap-0.5 font-medium',
-                  trend === 'up' && 'text-success',
-                  trend === 'down' && 'text-destructive'
+                  trend === 'up' && 'text-emerald-600',
+                  trend === 'down' && 'text-red-600'
                 )}
               >
-                {trend === 'up' ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                <TrendingUp className={cn('size-3', trend === 'down' && 'rotate-180')} />
                 {trendValue}
               </span>
             )}
@@ -63,181 +73,107 @@ function KPICard({
       </CardContent>
     </Card>
   )
-}
 
-function AlertCard({
-  severity,
-  title,
-  message,
-}: {
-  severity: 'error' | 'warning' | 'info'
-  title: string
-  message: string
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-start gap-3 rounded-xl border p-4',
-        severity === 'error' && 'border-destructive/50 bg-destructive/5',
-        severity === 'warning' && 'border-warning/50 bg-warning/5',
-        severity === 'info' && 'border-primary/50 bg-primary/5'
-      )}
-    >
-      <AlertTriangle
-        className={cn(
-          'mt-0.5 size-5 shrink-0',
-          severity === 'error' && 'text-destructive',
-          severity === 'warning' && 'text-warning',
-          severity === 'info' && 'text-primary'
-        )}
-      />
-      <div className="flex-1">
-        <p
-          className={cn(
-            'font-medium',
-            severity === 'error' && 'text-destructive',
-            severity === 'warning' && 'text-warning-foreground',
-            severity === 'info' && 'text-primary'
-          )}
-        >
-          {title}
-        </p>
-        <p className="mt-0.5 text-sm text-muted-foreground">{message}</p>
-      </div>
-    </div>
-  )
-}
-
-function InsightCard({ icon, message }: { icon: string; message: string }) {
-  const Icon = icon === 'alert-triangle' ? AlertTriangle : icon === 'trending-up' ? TrendingUp : Lightbulb
-
-  return (
-    <div className="flex items-start gap-3 rounded-xl border bg-card p-4">
-      <div className="rounded-lg bg-primary/10 p-2">
-        <Icon className="size-4 text-primary" />
-      </div>
-      <p className="text-sm leading-relaxed text-foreground">{message}</p>
-    </div>
-  )
-}
-
-function PedidoCard({
-  numero,
-  cliente,
-  status,
-  prazo,
-  total,
-}: {
-  numero: string
-  cliente: string
-  status: string
-  prazo?: Date
-  total: number
-}) {
-  const statusConfig = {
-    em_producao: { label: 'Em Produção', color: 'bg-warning text-warning-foreground', icon: Clock },
-    pronto: { label: 'Pronto', color: 'bg-success text-success-foreground', icon: CheckCircle2 },
-    enviado: { label: 'Enviado', color: 'bg-primary text-primary-foreground', icon: Truck },
+  if (href) {
+    return <Link href={href}>{content}</Link>
   }
+  return content
+}
 
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.em_producao
-  const StatusIcon = config.icon
-  const diasRestantes = prazo ? Math.ceil((prazo.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
-
+// Stat item for quick stats
+function StatItem({ label, value, variant = 'default' }: { label: string; value: number | string; variant?: 'default' | 'warning' | 'danger' }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border bg-card p-4">
-      <div className={cn('flex size-10 items-center justify-center rounded-lg', config.color)}>
-        <StatusIcon className="size-5" />
-      </div>
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{numero}</span>
-          <Badge variant="outline" className="text-xs">
-            {config.label}
-          </Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">{cliente}</p>
-      </div>
-      <div className="text-right">
-        <p className="font-medium">
-          {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-        </p>
-        {diasRestantes !== null && (
-          <p className={cn('text-xs', diasRestantes <= 3 ? 'text-destructive' : 'text-muted-foreground')}>
-            {diasRestantes <= 0 ? 'Atrasado' : `${diasRestantes} dias`}
-          </p>
-        )}
-      </div>
+    <div className="flex items-center justify-between py-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={cn(
+        'font-medium',
+        variant === 'warning' && 'text-amber-600',
+        variant === 'danger' && 'text-red-600'
+      )}>
+        {value}
+      </span>
     </div>
   )
 }
 
-function ProducaoItem({
-  pedido,
-  item,
-  quantidadeTotal,
-  quantidadeProduzida,
-  status,
-  motivoBloqueio,
-}: {
-  pedido: string
-  item: string
-  quantidadeTotal: number
-  quantidadeProduzida: number
-  status: string
-  motivoBloqueio?: string
-}) {
-  const progresso = (quantidadeProduzida / quantidadeTotal) * 100
-
+// Quick action button
+function QuickAction({ icon, label, href }: { icon: React.ReactNode; label: string; href: string }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{pedido}</span>
-            {status === 'bloqueado' && (
-              <Badge variant="destructive" className="text-xs">
-                Bloqueado
-              </Badge>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">{item}</p>
-        </div>
-        <span className="text-sm text-muted-foreground">
-          {quantidadeProduzida}/{quantidadeTotal}
-        </span>
+    <Link href={href}>
+      <Button variant="outline" className="w-full justify-start gap-3 h-12">
+        {icon}
+        <span>{label}</span>
+        <ArrowRight className="ml-auto size-4 text-muted-foreground" />
+      </Button>
+    </Link>
+  )
+}
+
+// Empty state component
+function EmptyState({ icon, title, description, action }: { 
+  icon: React.ReactNode
+  title: string
+  description: string
+  action?: { label: string; href: string }
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className="rounded-full bg-muted p-3 mb-3">
+        {icon}
       </div>
-      <Progress value={progresso} className="mt-3 h-2" />
-      {motivoBloqueio && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive">
-          <AlertCircle className="size-3" />
-          {motivoBloqueio}
-        </div>
+      <h3 className="font-medium text-foreground">{title}</h3>
+      <p className="text-sm text-muted-foreground mt-1 max-w-xs">{description}</p>
+      {action && (
+        <Button asChild variant="outline" size="sm" className="mt-4">
+          <Link href={action.href}>
+            <Plus className="size-4 mr-2" />
+            {action.label}
+          </Link>
+        </Button>
       )}
     </div>
   )
 }
 
-function EstoqueBaixoItem({ nome, atual, minimo }: { nome: string; atual: number; minimo: number }) {
-  const percentual = (atual / minimo) * 100
-  const critico = atual < minimo
+// Stock item component
+function StockItem({ name, current, minimum, category }: { 
+  name: string
+  current: number
+  minimum: number
+  category?: string
+}) {
+  const percentage = Math.min((current / minimum) * 100, 100)
+  const isCritical = current === 0
+  const isLow = current > 0 && current <= minimum
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border bg-card p-4">
-      <div
-        className={cn(
-          'flex size-10 items-center justify-center rounded-lg',
-          critico ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning'
-        )}
-      >
+    <div className="flex items-center gap-4 py-3 border-b last:border-0">
+      <div className={cn(
+        'flex size-10 items-center justify-center rounded-lg shrink-0',
+        isCritical ? 'bg-red-100 text-red-600' : isLow ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+      )}>
         <Package className="size-5" />
       </div>
-      <div className="flex-1">
-        <p className="font-medium">{nome}</p>
-        <div className="mt-1 flex items-center gap-2">
-          <Progress value={Math.min(percentual, 100)} className="h-1.5 flex-1" />
-          <span className={cn('text-xs font-medium', critico ? 'text-destructive' : 'text-warning')}>
-            {atual}/{minimo}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-medium truncate">{name}</p>
+          {category && (
+            <Badge variant="secondary" className="text-xs shrink-0">
+              {category}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <Progress value={percentage} className={cn(
+            'h-1.5 flex-1',
+            isCritical && '[&>div]:bg-red-500',
+            isLow && !isCritical && '[&>div]:bg-amber-500'
+          )} />
+          <span className={cn(
+            'text-xs font-medium shrink-0',
+            isCritical ? 'text-red-600' : isLow ? 'text-amber-600' : 'text-muted-foreground'
+          )}>
+            {current}/{minimum}
           </span>
         </div>
       </div>
@@ -245,6 +181,7 @@ function EstoqueBaixoItem({ nome, atual, minimo }: { nome: string; atual: number
   )
 }
 
+// Loading skeleton
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
@@ -265,178 +202,234 @@ function DashboardSkeleton() {
   )
 }
 
-export default function DashboardPage() {
-  const alertasNaoLidos = alertas.filter((a) => !a.lido)
-  const materiaisEstoqueBaixo = materiais.filter((m) => m.quantidadeDisponivel <= m.estoqueMinimo * 1.2)
+// Main Dashboard
+function DashboardContent() {
+  const { data: inventory = [], isLoading: loadingInventory } = useSWR('dashboard-inventory', getInventoryItems)
+  const { data: lowStock = [] } = useSWR('dashboard-lowstock', () => getLowStockItems(10))
+  const { data: products = [], isLoading: loadingProducts } = useSWR('dashboard-products', getProducts)
+  const { data: clients = [], isLoading: loadingClients } = useSWR('dashboard-clients', getClients)
+
+  const isLoading = loadingInventory || loadingProducts || loadingClients
+
+  // Calculate KPIs from real data
+  const totalInventoryValue = inventory.reduce((acc, item) => 
+    acc + ((item.current_quantity || item.quantity || 0) * (item.unit_cost || 0)), 0
+  )
+  
+  const criticalStockCount = lowStock.filter((item: any) => 
+    (item.current_quantity || item.quantity || 0) === 0
+  ).length
+  
+  const lowStockCount = lowStock.filter((item: any) => {
+    const qty = item.current_quantity || item.quantity || 0
+    return qty > 0 && qty <= (item.minimum_quantity || 10)
+  }).length
+
+  const activeProducts = products.filter((p: any) => p.status === 'active' || p.ativo).length
+
+  if (isLoading) {
+    return <DashboardSkeleton />
+  }
 
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="font-serif text-2xl font-semibold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Visão geral do seu ateliê</p>
-        </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="font-serif text-2xl font-semibold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground">Bem-vinda ao seu painel de controle</p>
+      </div>
 
-        {/* KPIs */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <KPICard
-            title="Pedidos Ativos"
-            value={kpiDashboard.pedidosAtivos.toString()}
-            description="em produção ou prontos"
-            icon={<ShoppingCart className="size-5" />}
-          />
-          <KPICard
-            title="Estoque Baixo"
-            value={kpiDashboard.itensEstoqueBaixo.toString()}
-            description="itens abaixo do mínimo"
-            icon={<AlertTriangle className="size-5" />}
-          />
-          <KPICard
-            title="Receita Mensal"
-            value={kpiDashboard.receitaMensal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            trend={kpiDashboard.variacaoReceita > 0 ? 'up' : 'down'}
-            trendValue={`${Math.abs(kpiDashboard.variacaoReceita)}%`}
-            description="vs. mês anterior"
-            icon={<DollarSign className="size-5" />}
-          />
-          <KPICard
-            title="Margem Média"
-            value={`${kpiDashboard.margemLucroMedia}%`}
-            trend={kpiDashboard.variacaoMargem > 0 ? 'up' : 'down'}
-            trendValue={`${Math.abs(kpiDashboard.variacaoMargem)}%`}
-            description="vs. mês anterior"
-            icon={<TrendingUp className="size-5" />}
-          />
-        </div>
+      {/* KPIs */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <KPICard
+          title="Total em Estoque"
+          value={inventory.length}
+          description="itens cadastrados"
+          icon={<Boxes className="size-5" />}
+          href="/admin/estoque"
+        />
+        <KPICard
+          title="Estoque Baixo"
+          value={lowStockCount + criticalStockCount}
+          description={criticalStockCount > 0 ? `${criticalStockCount} zerados` : 'itens para repor'}
+          icon={<AlertTriangle className="size-5" />}
+          href="/admin/estoque"
+        />
+        <KPICard
+          title="Produtos Ativos"
+          value={activeProducts || products.length}
+          description="prontos para venda"
+          icon={<Package className="size-5" />}
+          href="/admin/produtos"
+        />
+        <KPICard
+          title="Clientes"
+          value={clients.length}
+          description="cadastrados"
+          icon={<Users className="size-5" />}
+          href="/admin/clientes"
+        />
+      </div>
 
-        {/* Alertas e Insights */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Alertas */}
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left Column - Stock Alerts */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Low Stock Alert */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-serif">
-                <AlertTriangle className="size-5 text-destructive" />
-                Alertas
-              </CardTitle>
-              <CardDescription>Situações que requerem sua atenção</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="font-serif flex items-center gap-2">
+                  <AlertTriangle className="size-5 text-amber-600" />
+                  Estoque Baixo
+                </CardTitle>
+                <CardDescription>Itens que precisam de reposicao</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/admin/estoque">Ver todos</Link>
+              </Button>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {alertasNaoLidos.length > 0 ? (
-                alertasNaoLidos.map((alerta) => (
-                  <AlertCard
-                    key={alerta.id}
-                    severity={alerta.severidade}
-                    title={alerta.titulo}
-                    message={alerta.mensagem}
-                  />
-                ))
+            <CardContent>
+              {lowStock.length === 0 ? (
+                <EmptyState
+                  icon={<CheckCircle2 className="size-5 text-emerald-600" />}
+                  title="Estoque em dia"
+                  description="Todos os itens estao acima do minimo"
+                />
               ) : (
-                <p className="text-center text-sm text-muted-foreground py-8">
-                  Nenhum alerta no momento
-                </p>
+                <div className="divide-y">
+                  {lowStock.slice(0, 5).map((item: any) => (
+                    <StockItem
+                      key={item.id}
+                      name={item.name}
+                      current={item.current_quantity || item.quantity || 0}
+                      minimum={item.minimum_quantity || 10}
+                      category={item.category}
+                    />
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Insights */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-serif">
-                <Lightbulb className="size-5 text-primary" />
-                Insights
-              </CardTitle>
-              <CardDescription>Recomendações inteligentes para o seu negócio</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {insights.map((insight) => (
-                <InsightCard key={insight.id} icon={insight.icone} message={insight.mensagem} />
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Pedidos e Produção */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Pedidos Recentes */}
+          {/* Recent Products */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="font-serif">Pedidos Recentes</CardTitle>
-                <CardDescription>Últimos pedidos e status</CardDescription>
+                <CardTitle className="font-serif">Produtos Recentes</CardTitle>
+                <CardDescription>Ultimos produtos cadastrados</CardDescription>
               </div>
               <Button variant="outline" size="sm" asChild>
-                <a href="/admin/pedidos">Ver todos</a>
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {pedidos.slice(0, 4).map((pedido) => (
-                <PedidoCard
-                  key={pedido.id}
-                  numero={pedido.numero}
-                  cliente={pedido.cliente?.nome || 'Cliente'}
-                  status={pedido.status}
-                  prazo={pedido.prazoEntrega}
-                  total={pedido.total}
-                />
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Fila de Produção */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="font-serif">Fila de Produção</CardTitle>
-                <CardDescription>Itens aguardando produção</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/admin/producao">Ver todos</a>
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {filaProducao.map((item, index) => (
-                <ProducaoItem
-                  key={`${item.pedidoId}-${item.itemIndex}`}
-                  pedido={item.pedido?.numero || item.pedidoId}
-                  item={item.pedido?.itens[item.itemIndex]?.descricao || 'Item'}
-                  quantidadeTotal={item.quantidadeTotal}
-                  quantidadeProduzida={item.quantidadeProduzida}
-                  status={item.status}
-                  motivoBloqueio={item.motivoBloqueio}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Estoque Baixo */}
-        {materiaisEstoqueBaixo.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="font-serif">Materiais com Estoque Baixo</CardTitle>
-                <CardDescription>Itens que precisam de reposição</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/admin/estoque">Ver estoque</a>
+                <Link href="/admin/produtos">Ver todos</Link>
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 md:grid-cols-2">
-                {materiaisEstoqueBaixo.map((material) => (
-                  <EstoqueBaixoItem
-                    key={material.id}
-                    nome={material.nome}
-                    atual={material.quantidadeDisponivel}
-                    minimo={material.estoqueMinimo}
-                  />
-                ))}
-              </div>
+              {products.length === 0 ? (
+                <EmptyState
+                  icon={<Package className="size-5 text-muted-foreground" />}
+                  title="Nenhum produto"
+                  description="Comece cadastrando seus produtos"
+                  action={{ label: "Novo Produto", href: "/admin/produtos" }}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {products.slice(0, 4).map((product: any) => (
+                    <div key={product.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                      <div>
+                        <p className="font-medium">{product.name || product.nome}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {product.category || product.categoria}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">
+                          R$ {(product.price || product.precoVenda || 0).toFixed(2)}
+                        </p>
+                        <Badge variant={product.status === 'active' || product.ativo ? 'default' : 'secondary'} className="text-xs">
+                          {product.status === 'active' || product.ativo ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
+        </div>
+
+        {/* Right Column - Quick Actions & Stats */}
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif">Acoes Rapidas</CardTitle>
+              <CardDescription>Atalhos para tarefas comuns</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <QuickAction
+                icon={<Plus className="size-4" />}
+                label="Novo Item no Estoque"
+                href="/admin/estoque"
+              />
+              <QuickAction
+                icon={<Package className="size-4" />}
+                label="Novo Produto"
+                href="/admin/produtos"
+              />
+              <QuickAction
+                icon={<Users className="size-4" />}
+                label="Novo Cliente"
+                href="/admin/clientes"
+              />
+              <QuickAction
+                icon={<DollarSign className="size-4" />}
+                label="Calcular Preco"
+                href="/admin/precificacao"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Stats Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-serif">Resumo</CardTitle>
+              <CardDescription>Visao geral do seu negocio</CardDescription>
+            </CardHeader>
+            <CardContent className="divide-y">
+              <StatItem 
+                label="Valor em Estoque" 
+                value={`R$ ${totalInventoryValue.toFixed(2)}`} 
+              />
+              <StatItem 
+                label="Itens Criticos" 
+                value={criticalStockCount}
+                variant={criticalStockCount > 0 ? 'danger' : 'default'}
+              />
+              <StatItem 
+                label="Estoque Baixo" 
+                value={lowStockCount}
+                variant={lowStockCount > 0 ? 'warning' : 'default'}
+              />
+              <StatItem 
+                label="Total Produtos" 
+                value={products.length} 
+              />
+              <StatItem 
+                label="Total Clientes" 
+                value={clients.length} 
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
+    </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
     </Suspense>
   )
 }
