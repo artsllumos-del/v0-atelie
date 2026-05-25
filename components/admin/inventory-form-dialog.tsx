@@ -36,28 +36,38 @@ import { createInventoryItem, updateInventoryItem } from '@/lib/supabase/invento
 
 const inventoryFormSchema = z.object({
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  description: z.string().optional(),
+  supplier: z.string().min(1, 'Fornecedor é obrigatório'),
   category: z.string().min(1, 'Categoria é obrigatória'),
-  quantity: z.coerce.number().min(0),
-  minimum_quantity: z.coerce.number().min(1),
-  unit_cost: z.coerce.number().min(0),
-  unit: z.string().min(1, 'Unidade é obrigatória'),
+  unit_type: z.string().min(1, 'Tipo de unidade é obrigatório'),
+  current_quantity: z.coerce.number().min(0, 'Quantidade deve ser >= 0'),
+  minimum_quantity: z.coerce.number().min(1, 'Mínimo deve ser >= 1'),
+  unit_cost: z.coerce.number().min(0, 'Custo deve ser >= 0'),
+  weight_per_unit: z.coerce.number().min(0, 'Peso deve ser >= 0').optional(),
+  calculation_method: z.enum(['fixed', 'weight'], { errorMap: () => ({ message: 'Método inválido' }) }),
+  status: z.enum(['active', 'inactive'], { errorMap: () => ({ message: 'Status inválido' }) }),
+  notes: z.string().optional(),
 })
 
 type InventoryFormValues = z.infer<typeof inventoryFormSchema>
 
 const categories = [
-  'crucifixo',
+  'contas',
   'entremeio',
-  'conta_menor',
-  'conta_maior',
+  'corrente',
+  'crucifixo',
   'fecho',
   'pingente',
-  'corrente',
   'embalagem',
   'outros',
 ]
 
-const units = ['un', 'kg', 'metro', 'dúzia', 'pacote', 'caixa']
+const unitTypes = ['unidade', 'kg', 'metro', 'dúzia', 'pacote', 'caixa']
+
+const calculationMethods = [
+  { value: 'fixed', label: 'Preço Fixo' },
+  { value: 'weight', label: 'Cálculo por Peso' },
+]
 
 interface InventoryFormDialogProps {
   open: boolean
@@ -74,18 +84,30 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
     resolver: zodResolver(inventoryFormSchema),
     defaultValues: item ? {
       name: item.name,
+      description: item.description || '',
+      supplier: item.supplier,
       category: item.category,
-      quantity: item.quantity,
+      unit_type: item.unit_type,
+      current_quantity: item.current_quantity,
       minimum_quantity: item.minimum_quantity,
       unit_cost: item.unit_cost,
-      unit: item.unit,
+      weight_per_unit: item.weight_per_unit || 0,
+      calculation_method: item.calculation_method || 'fixed',
+      status: item.status || 'active',
+      notes: item.notes || '',
     } : {
       name: '',
-      category: 'outros',
-      quantity: 0,
+      description: '',
+      supplier: '',
+      category: 'contas',
+      unit_type: 'unidade',
+      current_quantity: 0,
       minimum_quantity: 10,
       unit_cost: 0,
-      unit: 'un',
+      weight_per_unit: 0,
+      calculation_method: 'fixed',
+      status: 'active',
+      notes: '',
     },
   })
 
@@ -123,7 +145,7 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
             <FormField
               control={form.control}
               name="name"
@@ -131,7 +153,7 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
                 <FormItem>
                   <FormLabel>Nome*</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Conta de cristal azul" {...field} />
+                    <Input placeholder="Ex: Conta de cristal azul" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -140,24 +162,27 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
 
             <FormField
               control={form.control}
-              name="category"
+              name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Categoria*</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, ' ')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Descrição</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Detalhes do item" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="supplier"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fornecedor*</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Fornecedor A" {...field} disabled={isLoading} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -166,12 +191,64 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="quantity"
+                name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantidade*</FormLabel>
+                    <FormLabel>Categoria*</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="unit_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo Unidade*</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="unidade" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {unitTypes.map((u) => (
+                          <SelectItem key={u} value={u}>
+                            {u}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="current_quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantidade Atual*</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0" {...field} />
+                      <Input type="number" placeholder="0" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -183,9 +260,9 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
                 name="minimum_quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mínimo*</FormLabel>
+                    <FormLabel>Quantidade Mínima*</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="10" {...field} />
+                      <Input type="number" placeholder="10" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -199,9 +276,9 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
                 name="unit_cost"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Custo Unit. (R$)*</FormLabel>
+                    <FormLabel>Custo Unitário (R$)*</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -210,36 +287,88 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Inv
 
               <FormField
                 control={form.control}
-                name="unit"
+                name="weight_per_unit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Unidade*</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="un" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {units.map((u) => (
-                          <SelectItem key={u} value={u}>
-                            {u}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Peso por Unidade (g)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.001" placeholder="0" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormDescription>Para cálculo por peso</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <FormField
+              control={form.control}
+              name="calculation_method"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Método de Cálculo*</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {calculationMethods.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>Como calcular o preço deste item</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status*</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="active">Ativo</SelectItem>
+                      <SelectItem value="inactive">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observações</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Notas adicionais" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Salvando...' : 'Salvar'}
+                {isLoading ? 'Salvando...' : isEditing ? 'Atualizar' : 'Criar'}
               </Button>
             </DialogFooter>
           </form>

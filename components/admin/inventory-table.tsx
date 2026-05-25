@@ -83,8 +83,10 @@ export function InventoryTable({ items, onEdit, onRefresh }: InventoryTableProps
             </TableRow>
           ) : (
             items.map((item) => {
-              const { status, variant } = getStockStatus(item.quantity, item.minimum_quantity || 10)
-              const stockPercentage = Math.min((item.quantity / (item.minimum_quantity || 10)) * 100, 100)
+              const currentQty = item.current_quantity || item.quantity || 0
+              const minQty = item.minimum_quantity || 10
+              const { status, variant } = getStockStatus(currentQty, minQty)
+              const stockPercentage = Math.min((currentQty / minQty) * 100, 100)
 
               return (
                 <TableRow key={item.id}>
@@ -94,11 +96,11 @@ export function InventoryTable({ items, onEdit, onRefresh }: InventoryTableProps
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="space-y-1">
-                      <p className="font-semibold">{item.quantity}</p>
+                      <p className="font-semibold">{currentQty}</p>
                       <Progress value={stockPercentage} className="h-1 w-16 mx-auto" />
                     </div>
                   </TableCell>
-                  <TableCell className="text-center">{item.minimum_quantity || 10}</TableCell>
+                  <TableCell className="text-center">{minQty}</TableCell>
                   <TableCell>
                     <Badge variant={variant}>{status}</Badge>
                   </TableCell>
