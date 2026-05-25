@@ -1,7 +1,10 @@
+'use client'
+
 // Funções para gerenciar clientes no Supabase
-import { supabase } from './client'
+import { createClient } from './client'
 
 export async function getClients() {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('clients')
     .select('*')
@@ -11,7 +14,8 @@ export async function getClients() {
   return data || []
 }
 
-export async function createClient(client: any) {
+export async function createNewClient(client: any) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('clients')
     .insert([{
@@ -19,12 +23,9 @@ export async function createClient(client: any) {
       email: client.email,
       phone: client.phone || null,
       address: client.address || null,
-      notes: client.notes || null,
-      is_company: client.is_company,
-      company_name: client.company_name || null,
-      cnpj: client.cnpj || null,
-      order_count: 0,
-      total_spent: 0,
+      city: client.city || null,
+      state: client.state || null,
+      zip_code: client.zip_code || null,
       created_at: new Date().toISOString(),
     }])
     .select()
@@ -34,6 +35,7 @@ export async function createClient(client: any) {
 }
 
 export async function updateClient(id: string, client: any) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('clients')
     .update({
@@ -41,10 +43,9 @@ export async function updateClient(id: string, client: any) {
       email: client.email,
       phone: client.phone || null,
       address: client.address || null,
-      notes: client.notes || null,
-      is_company: client.is_company,
-      company_name: client.company_name || null,
-      cnpj: client.cnpj || null,
+      city: client.city || null,
+      state: client.state || null,
+      zip_code: client.zip_code || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -55,6 +56,7 @@ export async function updateClient(id: string, client: any) {
 }
 
 export async function deleteClient(id: string) {
+  const supabase = createClient()
   const { error } = await supabase
     .from('clients')
     .delete()
@@ -64,6 +66,7 @@ export async function deleteClient(id: string) {
 }
 
 export async function getClientById(id: string) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('clients')
     .select('*')

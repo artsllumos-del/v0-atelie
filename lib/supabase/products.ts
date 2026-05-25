@@ -1,7 +1,10 @@
+'use client'
+
 // Funções para gerenciar produtos no Supabase
-import { supabase } from './client'
+import { createClient } from './client'
 
 export async function getProducts() {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -12,16 +15,14 @@ export async function getProducts() {
 }
 
 export async function createProduct(product: any) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('products')
     .insert([{
       name: product.name,
       description: product.description,
       base_price: product.base_price,
-      sale_price: product.sale_price || product.base_price,
-      production_time_minutes: product.production_time_minutes,
-      is_customizable: product.is_customizable,
-      is_active: product.is_active,
+      is_active: product.is_active || true,
       created_at: new Date().toISOString(),
     }])
     .select()
@@ -31,15 +32,13 @@ export async function createProduct(product: any) {
 }
 
 export async function updateProduct(id: string, product: any) {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('products')
     .update({
       name: product.name,
       description: product.description,
       base_price: product.base_price,
-      sale_price: product.sale_price || product.base_price,
-      production_time_minutes: product.production_time_minutes,
-      is_customizable: product.is_customizable,
       is_active: product.is_active,
       updated_at: new Date().toISOString(),
     })
@@ -51,10 +50,23 @@ export async function updateProduct(id: string, product: any) {
 }
 
 export async function deleteProduct(id: string) {
+  const supabase = createClient()
   const { error } = await supabase
     .from('products')
     .delete()
     .eq('id', id)
 
   if (error) throw error
+}
+
+export async function getProductById(id: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data
 }
