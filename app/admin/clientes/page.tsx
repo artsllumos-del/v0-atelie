@@ -59,6 +59,13 @@ export default function ClientesPage() {
     setSelectedClient(null)
   }
 
+  const handleOpenChange = (open: boolean) => {
+    setFormDialogOpen(open)
+    if (!open) {
+      setSelectedClient(null)
+    }
+  }
+
   const handleFormSuccess = () => {
     mutate()
   }
@@ -180,7 +187,7 @@ export default function ClientesPage() {
 
       <ClientFormDialog 
         open={formDialogOpen}
-        onOpenChange={handleCloseDialog}
+        onOpenChange={handleOpenChange}
         client={selectedClient}
         onSuccess={handleFormSuccess}
       />

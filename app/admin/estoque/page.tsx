@@ -58,6 +58,13 @@ export default function EstoquePage() {
     setSelectedItem(null)
   }
 
+  const handleOpenChange = (open: boolean) => {
+    setFormDialogOpen(open)
+    if (!open) {
+      setSelectedItem(null)
+    }
+  }
+
   const handleFormSuccess = () => {
     mutate()
   }
@@ -180,7 +187,7 @@ export default function EstoquePage() {
 
       <InventoryFormDialog 
         open={formDialogOpen}
-        onOpenChange={handleCloseDialog}
+        onOpenChange={handleOpenChange}
         item={selectedItem}
         onSuccess={handleFormSuccess}
       />
