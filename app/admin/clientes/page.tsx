@@ -47,10 +47,11 @@ export default function ClientesPage() {
 
   const filteredClients = clients.filter((client) => {
     const matchSearch = (client.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (client.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-    const matchType = typeFilter === 'all' || 
-      (typeFilter === 'pessoa' && !client.is_company) ||
-      (typeFilter === 'empresa' && client.is_company)
+      (client.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (client.phone?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+    const matchType = typeFilter === 'all' ||
+      (typeFilter === 'pessoa' && client.type !== 'pessoa_juridica') ||
+      (typeFilter === 'empresa' && client.type === 'pessoa_juridica')
     return matchSearch && matchType
   })
 
@@ -76,9 +77,9 @@ export default function ClientesPage() {
   }
 
   const totalClients = clients.length
-  const totalCompanies = clients.filter((c: any) => c.is_company).length
-  const totalSpent = clients.reduce((acc: number, c: any) => acc + (c.totalSpent || 0), 0)
-  const totalOrders = clients.reduce((acc: number, c: any) => acc + (c.orderCount || 0), 0)
+  const totalCompanies = clients.filter((c) => c.type === 'pessoa_juridica').length
+  const totalSpent = clients.reduce((acc, c) => acc + (c.total_spent || 0), 0)
+  const totalOrders = clients.reduce((acc, c) => acc + (c.total_orders || 0), 0)
 
   return (
     <div className="space-y-6">

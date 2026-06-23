@@ -84,10 +84,10 @@ export function ClientTable({ clients, onEdit }: ClientTableProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Badge variant="secondary">{client.orderCount || 0}</Badge>
+                  <Badge variant="secondary">{client.total_orders || 0}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-medium">
-                  R$ {(client.totalSpent || 0).toFixed(2)}
+                  R$ {(client.total_spent || 0).toFixed(2)}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
