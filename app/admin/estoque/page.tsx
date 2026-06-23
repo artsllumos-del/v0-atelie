@@ -162,8 +162,25 @@ export default function EstoquePage() {
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<any>(null)
 
-  const { data: items = [], isLoading, mutate } = useSWR('inventory-items', getInventoryItems)
-  const { data: lowStockItems = [] } = useSWR('low-stock-items', () => getLowStockItems(100))
+  const { data: items = [], isLoading, mutate } = useSWR(
+    'inventory-items',
+    getInventoryItems,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000,
+      focusThrottleInterval: 300000,
+    }
+  )
+  const { data: lowStockItems = [] } = useSWR(
+    'low-stock-items',
+    () => getLowStockItems(100),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000,
+    }
+  )
 
   // Filter items
   const filteredItems = useMemo(() => {

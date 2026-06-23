@@ -204,10 +204,17 @@ function DashboardSkeleton() {
 
 // Main Dashboard
 function DashboardContent() {
-  const { data: inventory = [], isLoading: loadingInventory } = useSWR('dashboard-inventory', getInventoryItems)
-  const { data: lowStock = [] } = useSWR('dashboard-lowstock', () => getLowStockItems(10))
-  const { data: products = [], isLoading: loadingProducts } = useSWR('dashboard-products', getProducts)
-  const { data: clients = [], isLoading: loadingClients } = useSWR('dashboard-clients', getClients)
+  const swrConfig = {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 60000,
+    focusThrottleInterval: 300000,
+  }
+  
+  const { data: inventory = [], isLoading: loadingInventory } = useSWR('dashboard-inventory', getInventoryItems, swrConfig)
+  const { data: lowStock = [] } = useSWR('dashboard-lowstock', () => getLowStockItems(10), swrConfig)
+  const { data: products = [], isLoading: loadingProducts } = useSWR('dashboard-products', getProducts, swrConfig)
+  const { data: clients = [], isLoading: loadingClients } = useSWR('dashboard-clients', getClients, swrConfig)
 
   const isLoading = loadingInventory || loadingProducts || loadingClients
 

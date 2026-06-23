@@ -30,7 +30,12 @@ export default function ProdutosPage() {
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
 
-  const { data: products = [], isLoading, error, mutate } = useSWR('products', getProducts)
+  const { data: products = [], isLoading, error, mutate } = useSWR('products', getProducts, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 60000,
+    focusThrottleInterval: 300000,
+  })
 
   useEffect(() => {
     if (error) {

@@ -32,7 +32,12 @@ export default function ClientesPage() {
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [selectedClient, setSelectedClient] = useState<any>(null)
 
-  const { data: clients = [], isLoading, error, mutate } = useSWR('clients', getClients)
+  const { data: clients = [], isLoading, error, mutate } = useSWR('clients', getClients, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 60000,
+    focusThrottleInterval: 300000,
+  })
 
   useEffect(() => {
     if (error) {
