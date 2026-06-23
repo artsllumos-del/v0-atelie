@@ -1,5 +1,3 @@
-'use client'
-
 import { createClient } from './client'
 import { calcUnitCostFromPackage } from '@/lib/currency'
 

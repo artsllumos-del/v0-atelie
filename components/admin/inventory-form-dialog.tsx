@@ -371,7 +371,6 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Pro
                       <CurrencyInput
                         value={field.value}
                         onChange={field.onChange}
-                        onValueChange={(num) => form.setValue('unit_cost', num)}
                         disabled={isLoading}
                         placeholder="0,00"
                       />
@@ -420,7 +419,6 @@ export function InventoryFormDialog({ open, onOpenChange, item, onSuccess }: Pro
                           <CurrencyInput
                             value={field.value}
                             onChange={field.onChange}
-                            onValueChange={(num) => form.setValue('package_cost', num)}
                             disabled={isLoading}
                             placeholder="0,00"
                           />

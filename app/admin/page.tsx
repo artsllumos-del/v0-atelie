@@ -219,17 +219,17 @@ function DashboardContent() {
   const isLoading = loadingInventory || loadingProducts || loadingClients
 
   // Calculate KPIs from real data
-  const totalInventoryValue = inventory.reduce((acc, item) => 
-    acc + ((item.current_quantity || item.quantity || 0) * (item.unit_cost || 0)), 0
+  const totalInventoryValue = inventory.reduce((acc, item) =>
+    acc + ((item.current_quantity ?? 0) * (item.unit_cost ?? 0)), 0
   )
-  
-  const criticalStockCount = lowStock.filter((item: any) => 
-    (item.current_quantity || item.quantity || 0) === 0
+
+  const criticalStockCount = lowStock.filter((item) =>
+    (item.current_quantity ?? 0) === 0
   ).length
-  
-  const lowStockCount = lowStock.filter((item: any) => {
-    const qty = item.current_quantity || item.quantity || 0
-    return qty > 0 && qty <= (item.minimum_quantity || 10)
+
+  const lowStockCount = lowStock.filter((item) => {
+    const qty = item.current_quantity ?? 0
+    return qty > 0 && qty <= (item.minimum_quantity ?? 10)
   }).length
 
   const activeProducts = products.filter((p: any) => p.status === 'active' || p.ativo).length
@@ -309,8 +309,8 @@ function DashboardContent() {
                     <StockItem
                       key={item.id}
                       name={item.name}
-                      current={item.current_quantity || item.quantity || 0}
-                      minimum={item.minimum_quantity || 10}
+                      current={item.current_quantity ?? 0}
+                      minimum={item.minimum_quantity ?? 10}
                       category={item.category}
                     />
                   ))}
