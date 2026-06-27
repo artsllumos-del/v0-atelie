@@ -1,349 +1,390 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import useSWR from 'swr'
-import {
-  Plus,
-  Search,
-  Package,
-  AlertTriangle,
-  Loader2,
-  TrendingDown,
-  LayoutGrid,
-  List,
-} from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Plus, Search, Pencil, Trash2, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { cn } from '@/lib/utils'
-import { getInventoryItems, getLowStockItems, type InventoryItem } from '@/lib/supabase/inventory'
-import { InventoryFormDialog } from '@/components/admin/inventory-form-dialog'
-import { InventoryTable } from '@/components/admin/inventory-table'
 
-const categorias = [
-  { value: 'all', label: 'Todas' },
-  { value: 'contas', label: 'Contas' },
-  { value: 'entremeio', label: 'Entremeios' },
-  { value: 'corrente', label: 'Correntes' },
-  { value: 'crucifixo', label: 'Crucifixos' },
-  { value: 'fecho', label: 'Fechos' },
-  { value: 'pingente', label: 'Pingentes' },
-  { value: 'embalagem', label: 'Embalagens' },
-  { value: 'outros', label: 'Outros' },
-]
-
-const statusFilters = [
-  { value: 'all', label: 'Todos' },
-  { value: 'critical', label: 'Zerados' },
-  { value: 'low', label: 'Baixo' },
-  { value: 'normal', label: 'Normal' },
-]
-
-function InventoryCard({ item, onEdit }: { item: InventoryItem; onEdit: (item: InventoryItem) => void }) {
-  const currentQty = item.current_quantity ?? 0
-  const minQty = item.minimum_quantity ?? 10
-  const percentage = minQty > 0 ? Math.min((currentQty / minQty) * 100, 100) : 0
-  const isCritical = currentQty === 0
-  const isLow = currentQty > 0 && currentQty <= minQty
-
-  return (
-    <Card
-      className={cn(
-        'cursor-pointer transition-all hover:shadow-md',
-        isCritical && 'border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20',
-        isLow && !isCritical && 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20'
-      )}
-      onClick={() => onEdit(item)}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate font-medium">{item.name}</h3>
-            <p className="truncate text-sm text-muted-foreground">
-              {item.supplier || 'Sem fornecedor'}
-            </p>
-          </div>
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {item.category || 'Outros'}
-          </Badge>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Estoque</span>
-            <span className={cn(
-              'font-semibold',
-              isCritical && 'text-red-600',
-              isLow && !isCritical && 'text-amber-600'
-            )}>
-              {currentQty} / {minQty} {item.unit_type}
-            </span>
-          </div>
-          <Progress
-            value={percentage}
-            className={cn(
-              'h-2',
-              isCritical && '[&>div]:bg-red-500',
-              isLow && !isCritical && '[&>div]:bg-amber-500',
-              !isCritical && !isLow && '[&>div]:bg-emerald-500'
-            )}
-          />
-        </div>
-
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Custo unit.</span>
-          <span className="font-medium">
-            R$ {(item.unit_cost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
-  )
+interface Material {
+  id: string
+  name: string
+  sku: string
+  unit_type: string
+  cost_per_unit: number
+  current_quantity: number
+  minimum_quantity: number
+  quantity_in_package: number
+  cost_per_package: number
 }
 
-function StatsCard({
-  title,
-  value,
-  description,
-  icon,
-  variant = 'default',
-}: {
-  title: string
-  value: number | string
-  description: string
-  icon: React.ReactNode
-  variant?: 'default' | 'warning' | 'danger' | 'success'
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className={cn(
-          'rounded-lg p-2',
-          variant === 'default' && 'bg-primary/10 text-primary',
-          variant === 'warning' && 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
-          variant === 'danger' && 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
-          variant === 'success' && 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400'
-        )}>
-          {icon}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className={cn(
-          'text-2xl font-bold',
-          variant === 'warning' && 'text-amber-600 dark:text-amber-400',
-          variant === 'danger' && 'text-red-600 dark:text-red-400'
-        )}>
-          {value}
-        </div>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
-  )
-}
-
-export default function EstoquePage() {
+export default function EstoqueApp() {
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [categoriaFilter, setCategoriaFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
-  const [formDialogOpen, setFormDialogOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+  const [unitFilter, setUnitFilter] = useState('all')
+  const [formData, setFormData] = useState({
+    name: '',
+    sku: '',
+    unit_type: 'unidades',
+    quantity_in_package: '',
+    cost_per_package: '',
+    minimum_quantity: '',
+    current_quantity: '',
+    weight_grams: '',
+  })
 
-  const swrConfig = {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-    dedupingInterval: 30000,
+  useEffect(() => {
+    fetchMaterials()
+  }, [])
+
+  const fetchMaterials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('materials')
+        .select('*')
+        .order('name')
+
+      if (error) throw error
+      setMaterials(data || [])
+    } catch (error: any) {
+      toast.error('Erro ao carregar estoque')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const { data: items = [], isLoading, mutate } = useSWR('inventory-items', getInventoryItems, swrConfig)
-  const { data: lowStockItems = [] } = useSWR('low-stock-items', () => getLowStockItems(100), swrConfig)
+  const handleAddMaterial = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
+      const costPerUnit = Number(formData.cost_per_package) / Number(formData.quantity_in_package)
+      
+      const { error } = await supabase
+        .from('materials')
+        .insert({
+          name: formData.name,
+          sku: formData.sku || undefined,
+          unit_type: formData.unit_type,
+          quantity_in_package: Number(formData.quantity_in_package),
+          cost_per_package: Number(formData.cost_per_package),
+          cost_per_unit: costPerUnit,
+          minimum_quantity: Number(formData.minimum_quantity) || 0,
+          current_quantity: Number(formData.current_quantity) || 0,
+          weight_grams: formData.weight_grams ? Number(formData.weight_grams) : null,
+        })
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchSearch =
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.supplier ?? '').toLowerCase().includes(searchTerm.toLowerCase())
-      const matchCategoria = categoriaFilter === 'all' || item.category === categoriaFilter
-      const currentQty = item.current_quantity ?? 0
-      const minQty = item.minimum_quantity ?? 10
-      let matchStatus = true
-      if (statusFilter === 'critical') matchStatus = currentQty === 0
-      else if (statusFilter === 'low') matchStatus = currentQty > 0 && currentQty <= minQty
-      else if (statusFilter === 'normal') matchStatus = currentQty > minQty
-      return matchSearch && matchCategoria && matchStatus
-    })
-  }, [items, searchTerm, categoriaFilter, statusFilter])
+      if (error) throw error
 
-  const handleEdit = (item: InventoryItem) => {
-    setSelectedItem(item)
-    setFormDialogOpen(true)
+      toast.success('Material adicionado com sucesso!')
+      setFormData({
+        name: '',
+        sku: '',
+        unit_type: 'unidades',
+        quantity_in_package: '',
+        cost_per_package: '',
+        minimum_quantity: '',
+        current_quantity: '',
+        weight_grams: '',
+      })
+      setIsOpen(false)
+      fetchMaterials()
+    } catch (error: any) {
+      toast.error(error.message)
+    }
   }
 
-  const handleOpenChange = (open: boolean) => {
-    setFormDialogOpen(open)
-    if (!open) setSelectedItem(null)
+  const handleDeleteMaterial = async (id: string) => {
+    if (!confirm('Tem certeza que deseja deletar este material?')) return
+
+    try {
+      const { error } = await supabase
+        .from('materials')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      toast.success('Material deletado')
+      fetchMaterials()
+    } catch (error: any) {
+      toast.error(error.message)
+    }
   }
 
-  const handleFormSuccess = () => {
-    mutate()
-  }
+  const filteredMaterials = materials.filter(m => {
+    const matchSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                       (m.sku && m.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+    const matchUnit = unitFilter === 'all' || m.unit_type === unitFilter
+    return matchSearch && matchUnit
+  })
 
-  const totalValue = items.reduce(
-    (acc, item) => acc + ((item.current_quantity ?? 0) * (item.unit_cost ?? 0)),
-    0
-  )
-  const criticalItems = items.filter((item) => (item.current_quantity ?? 0) === 0).length
-  const lowItems = items.filter((item) => {
-    const qty = item.current_quantity ?? 0
-    const min = item.minimum_quantity ?? 10
-    return qty > 0 && qty <= min
-  }).length
+  const stats = {
+    total: materials.length,
+    lowStock: materials.filter(m => m.minimum_quantity && m.current_quantity < m.minimum_quantity).length,
+    totalValue: materials.reduce((sum, m) => sum + (m.current_quantity * m.cost_per_unit), 0),
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-2xl font-semibold">Estoque</h1>
-          <p className="text-muted-foreground">Gerencie seus materiais e controle o estoque</p>
+          <h1 className="text-3xl font-bold tracking-tight">Estoque</h1>
+          <p className="text-muted-foreground mt-2">Gerencie materiais e controle de quantidade</p>
         </div>
-        <Button onClick={() => { setSelectedItem(null); setFormDialogOpen(true) }}>
-          <Plus className="mr-2 size-4" />
-          Novo Item
-        </Button>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="w-4 h-4 mr-2" />Adicionar Material</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Novo Material</DialogTitle>
+              <DialogDescription>Cadastre um novo material ao estoque com cálculo automático de custo</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleAddMaterial} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Nome *</label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">SKU</label>
+                  <Input
+                    value={formData.sku}
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-muted/50 p-4 rounded-lg space-y-4">
+                <h3 className="font-semibold text-sm">Conversão de Unidades</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Unidade de Medida *</label>
+                    <Select value={formData.unit_type} onValueChange={(value) => setFormData({ ...formData, unit_type: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gramas">Gramas</SelectItem>
+                        <SelectItem value="kilos">Quilos</SelectItem>
+                        <SelectItem value="unidades">Unidades</SelectItem>
+                        <SelectItem value="metros">Metros</SelectItem>
+                        <SelectItem value="centimetros">Centímetros</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Peso do Pacote (g)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.weight_grams}
+                      onChange={(e) => setFormData({ ...formData, weight_grams: e.target.value })}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Quantidade por Pacote *</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.quantity_in_package}
+                    onChange={(e) => setFormData({ ...formData, quantity_in_package: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Custo por Pacote (R$) *</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.cost_per_package}
+                    onChange={(e) => setFormData({ ...formData, cost_per_package: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Quantidade Atual</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.current_quantity}
+                    onChange={(e) => setFormData({ ...formData, current_quantity: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Quantidade Mínima</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.minimum_quantity}
+                    onChange={(e) => setFormData({ ...formData, minimum_quantity: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full">Adicionar Material</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title="Total de Itens"
-          value={items.length}
-          description="itens cadastrados"
-          icon={<Package className="size-5" />}
-        />
-        <StatsCard
-          title="Zerados"
-          value={criticalItems}
-          description="precisam reposição urgente"
-          icon={<AlertTriangle className="size-5" />}
-          variant={criticalItems > 0 ? 'danger' : 'default'}
-        />
-        <StatsCard
-          title="Estoque Baixo"
-          value={lowItems}
-          description="abaixo do mínimo"
-          icon={<TrendingDown className="size-5" />}
-          variant={lowItems > 0 ? 'warning' : 'default'}
-        />
-        <StatsCard
-          title="Valor em Estoque"
-          value={`R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          description="custo total dos materiais"
-          icon={<Package className="size-5" />}
-          variant="success"
-        />
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total de Materiais</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">itens cadastrados</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              Estoque Baixo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{stats.lowStock}</div>
+            <p className="text-xs text-muted-foreground">abaixo do mínimo</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Valor em Estoque</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">R$ {stats.totalValue.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">custo total</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="font-serif">Itens de Estoque</CardTitle>
-              <CardDescription>
-                {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'itens'} encontrados
-              </CardDescription>
+              <CardTitle>Materiais</CardTitle>
+              <CardDescription>Lista de todos os materiais cadastrados</CardDescription>
             </div>
-            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'grid')}>
-              <TabsList className="h-9">
-                <TabsTrigger value="table" className="px-3">
-                  <List className="size-4" />
-                </TabsTrigger>
-                <TabsTrigger value="grid" className="px-3">
-                  <LayoutGrid className="size-4" />
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:flex-initial">
+                <Search className="absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar..."
+                  className="pl-9 w-full"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Select value={unitFilter} onValueChange={setUnitFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas unidades</SelectItem>
+                  <SelectItem value="gramas">Gramas</SelectItem>
+                  <SelectItem value="kilos">Quilos</SelectItem>
+                  <SelectItem value="unidades">Unidades</SelectItem>
+                  <SelectItem value="metros">Metros</SelectItem>
+                  <SelectItem value="centimetros">Centímetros</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
-
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou fornecedor..."
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {categorias.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-36">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statusFilters.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+        <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            <div className="text-center py-8">Carregando...</div>
+          ) : filteredMaterials.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {searchTerm || unitFilter !== 'all' ? 'Nenhum resultado encontrado' : 'Nenhum material cadastrado'}
             </div>
-          ) : viewMode === 'table' ? (
-            <InventoryTable
-              items={filteredItems}
-              onEdit={handleEdit}
-              onRefresh={() => mutate()}
-            />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredItems.length === 0 ? (
-                <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-                  <Package className="size-12 text-muted-foreground/50" />
-                  <h3 className="mt-4 font-medium">Nenhum item encontrado</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Tente ajustar os filtros ou adicione novos itens
-                  </p>
-                </div>
-              ) : (
-                filteredItems.map((item) => (
-                  <InventoryCard key={item.id} item={item} onEdit={handleEdit} />
-                ))
-              )}
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Material</TableHead>
+                    <TableHead>Unidade</TableHead>
+                    <TableHead>Quantidade</TableHead>
+                    <TableHead>Mínimo</TableHead>
+                    <TableHead>Custo Unit.</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-20">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMaterials.map((material) => {
+                    const isLowStock = material.minimum_quantity && material.current_quantity < material.minimum_quantity
+                    const percentual = material.minimum_quantity ? (material.current_quantity / material.minimum_quantity) * 100 : 0
+                    
+                    return (
+                      <TableRow key={material.id} className={isLowStock ? 'bg-destructive/5' : ''}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{material.name}</p>
+                            {material.sku && <p className="text-xs text-muted-foreground">SKU: {material.sku}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{material.unit_type}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{material.current_quantity}</p>
+                            <Progress value={Math.min(percentual, 100)} className="h-1 w-20" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{material.minimum_quantity || '-'}</TableCell>
+                        <TableCell>R$ {material.cost_per_unit.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {isLowStock ? (
+                            <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                              <AlertTriangle className="w-3 h-3" />
+                              Baixo
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">OK</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost"><Pencil className="w-4 h-4" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDeleteMaterial(material.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
       </Card>
-
-      <InventoryFormDialog
-        open={formDialogOpen}
-        onOpenChange={handleOpenChange}
-        item={selectedItem}
-        onSuccess={handleFormSuccess}
-      />
     </div>
   )
 }
