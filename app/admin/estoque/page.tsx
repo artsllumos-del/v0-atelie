@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Plus,
   Search,
@@ -54,7 +54,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { materiais } from '@/lib/mock-data'
+import { materiais as materiaisIniciais } from '@/lib/mock-data'
 import type { CategoriaMaterial, Material } from '@/lib/types'
 
 const categorias: { value: CategoriaMaterial; label: string }[] = [
@@ -179,109 +179,56 @@ function MaterialRow({ material }: { material: Material }) {
   )
 }
 
-function AddMaterialDialog() {
+function AddMaterialDialog({ onSave }: { onSave: (material: Material) => void }) {
   const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({
+    nome: '', categoria: 'contas' as CategoriaMaterial, fornecedor: '', unidadeCompra: 'pacote' as Material['unidadeCompra'],
+    pesoCompra: '', quantidadeEstimada: '', precoCompra: '', estoqueMinimo: '', quantidadeDisponivel: '',
+  })
+  const setField = (key: keyof typeof form, value: string) => setForm((current) => ({ ...current, [key]: value }))
+  const reset = () => setForm({ nome: '', categoria: 'contas', fornecedor: '', unidadeCompra: 'pacote', pesoCompra: '', quantidadeEstimada: '', precoCompra: '', estoqueMinimo: '', quantidadeDisponivel: '' })
+  const estimated = Number(form.quantidadeEstimada) || 0
+  const purchasePrice = Number(form.precoCompra) || 0
+  const unitCost = estimated > 0 ? purchasePrice / estimated : purchasePrice
+
+  const save = () => {
+    if (!form.nome.trim() || purchasePrice <= 0 || Number(form.estoqueMinimo) < 0) return
+    const now = new Date()
+    const material: Material = {
+      id: `mat-${Date.now()}`, nome: form.nome.trim(), categoria: form.categoria, unidadeCompra: form.unidadeCompra, unidadeUso: 'unidade',
+      fornecedor: form.fornecedor.trim() || undefined, pesoCompra: Number(form.pesoCompra) || undefined, quantidadeEstimada: estimated || undefined,
+      relacaoConversao: estimated && Number(form.pesoCompra) ? estimated / Number(form.pesoCompra) : undefined,
+      quantidadeDisponivel: Number(form.quantidadeDisponivel) || estimated, estoqueMinimo: Number(form.estoqueMinimo) || 0,
+      precoCompra: purchasePrice, custoUnitario: unitCost, criadoEm: now, atualizadoEm: now,
+    }
+    onSave(material); reset(); setOpen(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 size-4" />
-          Adicionar Material
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="font-serif">Adicionar Material</DialogTitle>
-          <DialogDescription>
-            Cadastre um novo material no estoque. O sistema irá calcular automaticamente a conversão.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogTrigger asChild><Button><Plus className="mr-2 size-4" />Adicionar Material</Button></DialogTrigger>
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+        <DialogHeader><DialogTitle className="font-serif">Adicionar Material</DialogTitle><DialogDescription>Cadastre o lote comprado e veja o custo por unidade automaticamente.</DialogDescription></DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="nome">Nome do Material</Label>
-            <Input id="nome" placeholder="Ex: Contas de Cristal 6mm" />
+          <div className="grid gap-2"><Label htmlFor="material-nome">Nome do Material</Label><Input id="material-nome" value={form.nome} onChange={(e) => setField('nome', e.target.value)} placeholder="Ex: Contas de Cristal 6mm" /></div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid gap-2"><Label>Categoria</Label><Select value={form.categoria} onValueChange={(value) => setField('categoria', value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categorias.map((cat) => <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="grid gap-2"><Label htmlFor="material-fornecedor">Fornecedor</Label><Input id="material-fornecedor" value={form.fornecedor} onChange={(e) => setField('fornecedor', e.target.value)} placeholder="Nome do fornecedor" /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="categoria">Categoria</Label>
-              <Select>
-                <SelectTrigger id="categoria">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categorias.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="fornecedor">Fornecedor</Label>
-              <Input id="fornecedor" placeholder="Nome do fornecedor" />
-            </div>
+          <div className="rounded-lg border bg-muted/30 p-4"><div className="mb-3 flex items-center gap-2"><Scale className="size-4 text-primary" /><span className="text-sm font-medium">Conversão de Unidades</span></div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><div className="grid gap-2"><Label>Unidade de Compra</Label><Select value={form.unidadeCompra} onValueChange={(value) => setField('unidadeCompra', value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{unidadesCompra.map((unit) => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select></div><div className="grid gap-2"><Label htmlFor="material-peso">Peso do Pacote (g)</Label><Input id="material-peso" type="number" min="0" value={form.pesoCompra} onChange={(e) => setField('pesoCompra', e.target.value)} /></div></div>
+            <div className="mt-4 grid gap-2"><Label htmlFor="material-quantidade">Quantidade no Pacote</Label><Input id="material-quantidade" type="number" min="0" value={form.quantidadeEstimada} onChange={(e) => setField('quantidadeEstimada', e.target.value)} placeholder="Ex: 200" /><p className="text-xs text-muted-foreground">Exemplo: pacote com 200 bolinhas divide o custo total por 200.</p></div>
           </div>
-
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Scale className="size-4 text-primary" />
-              <span className="text-sm font-medium">Conversão de Unidades</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="unidadeCompra">Unidade de Compra</Label>
-                <Select>
-                  <SelectTrigger id="unidadeCompra">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unidadesCompra.map((un) => (
-                      <SelectItem key={un.value} value={un.value}>
-                        {un.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pesoCompra">Peso do Pacote (g)</Label>
-                <Input id="pesoCompra" type="number" placeholder="80" />
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              <Label htmlFor="quantidadeEstimada">Quantidade Estimada de Unidades</Label>
-              <Input id="quantidadeEstimada" type="number" placeholder="60" />
-              <p className="text-xs text-muted-foreground">
-                O sistema irá melhorar essa conversão com o tempo, baseado no consumo real.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="precoCompra">Preço de Compra (R$)</Label>
-              <Input id="precoCompra" type="number" step="0.01" placeholder="25.00" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="estoqueMinimo">Estoque Mínimo</Label>
-              <Input id="estoqueMinimo" type="number" placeholder="100" />
-            </div>
-          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><div className="grid gap-2 sm:col-span-1"><Label htmlFor="material-preco">Custo total (R$)</Label><Input id="material-preco" type="number" min="0" step="0.01" value={form.precoCompra} onChange={(e) => setField('precoCompra', e.target.value)} placeholder="11,00" /></div><div className="grid gap-2"><Label htmlFor="material-estoque">Estoque mínimo</Label><Input id="material-estoque" type="number" min="0" value={form.estoqueMinimo} onChange={(e) => setField('estoqueMinimo', e.target.value)} /></div><div className="grid gap-2"><Label htmlFor="material-disponivel">Saldo inicial</Label><Input id="material-disponivel" type="number" min="0" value={form.quantidadeDisponivel} onChange={(e) => setField('quantidadeDisponivel', e.target.value)} /></div></div>
+          <div className="rounded-lg bg-primary/10 p-3 text-sm">Custo unitário calculado: <strong>{unitCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={() => setOpen(false)}>Salvar Material</Button>
-        </DialogFooter>
+        <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={save} disabled={!form.nome.trim() || purchasePrice <= 0}>Salvar Material</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
 
-function EstoqueCards() {
+function EstoqueCards({ materiais }: { materiais: Material[] }) {
   const totalMateriais = materiais.length
   const materiaisCriticos = materiais.filter((m) => m.quantidadeDisponivel < m.estoqueMinimo).length
   const materiaisBaixos = materiais.filter(
@@ -341,10 +288,19 @@ function EstoqueCards() {
 }
 
 export default function EstoquePage() {
+  const [materiais, setMateriais] = useState<Material[]>(materiaisIniciais)
   const [searchTerm, setSearchTerm] = useState('')
   const [categoriaFilter, setCategoriaFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
+  useEffect(() => {
+    const saved = window.localStorage.getItem('as_inventory')
+    if (saved) {
+      try { setMateriais(JSON.parse(saved).map((item: Material) => ({ ...item, criadoEm: new Date(item.criadoEm), atualizadoEm: new Date(item.atualizadoEm) }))) } catch { window.localStorage.removeItem('as_inventory') }
+    }
+  }, [])
+
+  const saveMateriais = (next: Material[]) => { setMateriais(next); window.localStorage.setItem('as_inventory', JSON.stringify(next)) }
   const filteredMateriais = materiais.filter((material) => {
     const matchSearch = material.nome.toLowerCase().includes(searchTerm.toLowerCase())
     const matchCategoria = categoriaFilter === 'all' || material.categoria === categoriaFilter
@@ -367,11 +323,11 @@ export default function EstoquePage() {
           <h1 className="font-serif text-2xl font-semibold text-foreground">Estoque</h1>
           <p className="text-muted-foreground">Gerencie seus materiais e controle o estoque</p>
         </div>
-        <AddMaterialDialog />
+        <AddMaterialDialog onSave={(material) => saveMateriais([...materiais, material])} />
       </div>
 
       {/* Cards */}
-      <EstoqueCards />
+      <EstoqueCards materiais={materiais} />
 
       {/* Tabela */}
       <Card>
